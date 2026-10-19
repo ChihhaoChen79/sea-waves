@@ -24,6 +24,8 @@ Tip: in Safari use Share → **Add to Home Screen** for a full-screen, app-like 
 
 Requires iOS 16.4+ (import maps). Sound starts after tapping **Set sail**; on iOS 17+ it plays even with the silent switch on.
 
+Pinch with two fingers to zoom (up to 6×) and double-tap to reset; the mouse wheel zooms on a computer.
+
 The corner buttons fade out after a few seconds without touching the screen; tap anywhere to bring them back.
 
 Three.js r160 (MIT) is vendored in `lib/`.
