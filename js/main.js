@@ -266,7 +266,8 @@ function frame() {
 	renderer.toneMappingExposure = state.exposure + flash * 0.6;
 
 	// Floating camera: rides the swell, slowly drifts and sways.
-	const cx = Math.sin( t * 0.013 ) * 20, cz = t * 0.6;
+	// Drift around a wide, slow circle so we never sail into an island.
+	const cx = 250 * Math.sin( t * 0.0024 ), cz = 250 * ( 1 - Math.cos( t * 0.0024 ) );
 	const h = waveHeight( cx, cz, t, state.waves );
 	const e = 1.2;
 	const hx = waveHeight( cx + e, cz, t, state.waves ) - h;

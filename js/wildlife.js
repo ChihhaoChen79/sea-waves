@@ -223,36 +223,80 @@ function gullModel( mat, wings ) {
 
 // ---------- Islands ----------
 
-function islandGeometry( seed ) {
+const ISLAND_COLORS = {
+	forest: new THREE.Color( 0x34502e ),
+	scrub: new THREE.Color( 0x5d6a3e ),
+	rock: new THREE.Color( 0x6e665a ),
+	limestone: new THREE.Color( 0xa8a293 ),
+	sand: new THREE.Color( 0xc2b08a )
+};
 
-	const noise = hashNoise( seed );
-	const g = new THREE.PlaneGeometry( 2, 2, 72, 72 );
+// Height (0..1) of each kind of island for a point with coast distance m (0 at the
+// shore, rising inland) and local coordinates x, z in [-1, 1].
+const ISLAND_SHAPES = {
+
+	// Rolling green hills with an uneven ridgeline
+	hills: ( m, x, z, n ) => Math.pow( ss( m, 0, 0.75 ), 1.2 ) * ( 0.35 + 0.8 * n( x * 2.2 + 3, z * 2.2 ) ) +
+		0.15 * ss( m, 0.15, 0.6 ) * n( x * 7, z * 7 ),
+
+	// Sheer cliffs straight out of the sea with a gently undulating top
+	mesa: ( m, x, z, n ) => ss( m, 0, 0.07 ) * ( 0.55 + 0.25 * ss( m, 0.05, 0.6 ) + 0.25 * n( x * 4, z * 4 ) ),
+
+	// Low islet: a sandy rim, then a canopy of trees
+	cay: ( m, x, z, n ) => 0.15 * ss( m, 0, 0.08 ) + 0.85 * ss( m, 0.1, 0.25 ) * ( 0.55 + 0.45 * n( x * 14, z * 14 ) ),
+
+	// Limestone pillars with rounded, bushy tops
+	stack: ( m, x, z, n ) => ss( m, 0, 0.12 ) * ( 0.7 + 0.3 * n( x * 5, z * 5 ) ) * ( 0.55 + 0.45 * Math.sqrt( ss( m, 0.05, 0.8 ) ) ),
+
+	// A long, far coastline of overlapping ridges
+	coast: ( m, x, z, n ) => Math.pow( ss( m, 0, 0.6 ), 1.1 ) * ( 0.25 + 0.9 * n( x * 7 + 1, z * 1.5 ) )
+
+};
+
+function islandGeometry( type, W, D, H ) {
+
+	const n = hashNoise( Math.random() * 1000 );
+	const segX = type === 'coast' ? 200 : 96, segZ = type === 'coast' ? 40 : 96;
+	const g = new THREE.PlaneGeometry( 2, 2, segX, segZ );
 	g.rotateX( - Math.PI / 2 );
-	const peaks = Array.from( { length: 1 + Math.floor( Math.random() * 3 ) }, () => ( {
-		x: rand( - 0.45, 0.45 ), z: rand( - 0.25, 0.25 ), h: rand( 0.45, 1 ), r: rand( 0.28, 0.55 )
-	} ) );
-	peaks[ 0 ].h = 1;
+	const shape = ISLAND_SHAPES[ type ];
 	const p = g.attributes.position;
+	const heights = new Float32Array( p.count );
+
 	for ( let i = 0; i < p.count; i ++ ) {
 
 		const x = p.getX( i ), z = p.getZ( i );
-		let h = 0;
-		for ( const k of peaks ) {
-
-			const d = ( ( x - k.x ) ** 2 + ( ( z - k.z ) * 1.6 ) ** 2 ) / ( k.r * k.r );
-			h = Math.max( h, k.h * Math.exp( - d * 1.6 ) );
-
-		}
-
-		h *= 0.7 + 0.6 * noise( x * 3 + 10, z * 3 );
-		// Slope everything down under the sea well before the edge of the grid,
-		// otherwise the cut-off rim shows above the water and the island floats.
-		h *= 1 - ss( Math.hypot( x, z ), 0.6, 0.95 );
-		p.setY( i, h - 0.08 );
+		// Irregular coastline: the outline radius wobbles with angle, and bays bite in.
+		const a = Math.atan2( z, x );
+		const outline = 0.6 + 0.32 * n( Math.cos( a ) * 1.3 + 7, Math.sin( a ) * 1.3 + 7 );
+		const r = Math.hypot( x, z ) / outline + 0.35 * ( n( x * 3 + 20, z * 3 ) - 0.5 );
+		const m = THREE.MathUtils.clamp( 1 - r, 0, 1 );
+		const h = shape( m, x, z, n ) * ( 1 - ss( Math.hypot( x, z ), 0.85, 0.98 ) );
+		heights[ i ] = h;
+		p.setXYZ( i, x * W / 2, h * H - Math.max( 3, H * 0.06 ), z * D / 2 );
 
 	}
 
 	g.computeVertexNormals();
+
+	// Paint by slope and height: rock on steep faces, green on gentle ground, a pale
+	// band where the land meets the water.
+	const nrm = g.attributes.normal, c = ISLAND_COLORS, col = new THREE.Color();
+	const shore = type === 'cay' || type === 'hills' ? c.sand : type === 'stack' ? c.limestone : c.rock;
+	const cliff = type === 'stack' || type === 'mesa' ? c.limestone : c.rock;
+	const colors = new Float32Array( p.count * 3 );
+	for ( let i = 0; i < p.count; i ++ ) {
+
+		const steep = 1 - ss( nrm.getY( i ), 0.55, 0.8 );
+		col.copy( c.forest ).lerp( c.scrub, n( p.getX( i ) * 0.01, p.getZ( i ) * 0.01 ) * 0.8 );
+		col.lerp( cliff, steep );
+		col.lerp( shore, 1 - ss( heights[ i ] * H, 2, Math.max( 6, H * 0.08 ) ) );
+		col.multiplyScalar( 0.85 + 0.3 * n( p.getX( i ) * 0.05 + 50, p.getZ( i ) * 0.05 ) );
+		colors.set( [ col.r, col.g, col.b ], i * 3 );
+
+	}
+
+	g.setAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
 	return g;
 
 }
@@ -514,23 +558,75 @@ export class Wildlife {
 
 	}
 
-	buildIslands() {
+	buildIslands( pick, b0 = Math.random() * Math.PI * 2 ) {
 
-		const mat = new THREE.MeshStandardMaterial( { color: 0x34423a, roughness: 1 } );
-		const n = 2 + Math.floor( Math.random() * 3 );
-		const start = Math.random() * Math.PI * 2;
-		for ( let i = 0; i < n; i ++ ) {
+		const mat = new THREE.MeshStandardMaterial( { vertexColors: true, roughness: 1 } );
+		const add = ( type, bearing, dist, W, D, H ) => {
 
-			const bearing = start + ( i / n ) * Math.PI * 2 + rand( - 0.5, 0.5 );
-			const dist = rand( 3500, 7500 );
-			const mesh = new THREE.Mesh( islandGeometry( i * 13 + Math.random() * 100 ), mat );
-			const w = rand( 600, 1800 );
-			mesh.scale.set( w, rand( 220, 600 ) * ( w / 1200 ) ** 0.5, w * rand( 0.4, 0.7 ) );
+			const mesh = new THREE.Mesh( islandGeometry( type, W, D, H ), mat );
 			mesh.position.set( Math.sin( bearing ) * dist, 0, Math.cos( bearing ) * dist );
-			mesh.rotation.y = bearing + Math.PI / 2 + rand( - 0.4, 0.4 );
+			// Long side roughly facing us
+			mesh.rotation.y = bearing + Math.PI / 2 + rand( - 0.3, 0.3 );
 			this.islands.add( mesh );
 
-		}
+		};
+
+		const scenes = {
+
+			// A big hilly island with smaller islets and rocks around it
+			archipelago: ( b ) => {
+
+				const d = rand( 4500, 6500 ), W = rand( 2500, 4000 );
+				add( 'hills', b, d, W, W * rand( 0.4, 0.6 ), rand( 180, 380 ) );
+				for ( let i = 0, k = 2 + Math.floor( Math.random() * 3 ); i < k; i ++ ) {
+
+					const type = [ 'hills', 'mesa', 'stack', 'hills' ][ i % 4 ];
+					const w = type === 'stack' ? rand( 150, 350 ) : rand( 400, 1200 );
+					add( type, b + rand( 0.08, 0.35 ) * ( i % 2 ? 1 : - 1 ), d + rand( - 1800, 800 ), w, w * rand( 0.5, 0.9 ), type === 'stack' ? rand( 50, 110 ) : rand( 40, 150 ) );
+
+				}
+
+			},
+
+			// Mainland on the horizon with an island in front of it
+			coast: ( b ) => {
+
+				add( 'coast', b, rand( 7000, 8500 ), rand( 8000, 12000 ), rand( 2000, 3000 ), rand( 300, 550 ) );
+				const w = rand( 1200, 2500 );
+				add( Math.random() < 0.5 ? 'hills' : 'mesa', b + rand( - 0.25, 0.25 ), rand( 3500, 5000 ), w, w * 0.5, rand( 100, 250 ) );
+
+			},
+
+			// A bay of limestone pillars and cliffy islets
+			karst: ( b ) => {
+
+				for ( let i = 0, k = 4 + Math.floor( Math.random() * 4 ); i < k; i ++ ) {
+
+					const type = Math.random() < 0.7 ? 'stack' : 'mesa';
+					const w = type === 'stack' ? rand( 150, 450 ) : rand( 400, 900 );
+					add( type, b + rand( - 0.4, 0.4 ), rand( 1300, 3200 ), w, w * rand( 0.6, 1 ), type === 'stack' ? rand( 50, 150 ) : rand( 60, 120 ) );
+
+				}
+
+			},
+
+			// A low tree-covered islet with green hills behind
+			tropical: ( b ) => {
+
+				const w = rand( 800, 1800 );
+				add( 'cay', b, rand( 1500, 2200 ), w, w * rand( 0.3, 0.5 ), rand( 28, 42 ) );
+				const W = rand( 2500, 4500 );
+				add( 'hills', b + rand( - 0.12, 0.12 ), rand( 5500, 7500 ), W, W * 0.5, rand( 200, 400 ) );
+
+			}
+
+		};
+
+		// Two of the four layouts, in different parts of the horizon
+		this.islands.clear();
+		const names = pick || Object.keys( scenes ).sort( () => Math.random() - 0.5 );
+		scenes[ names[ 0 ] ]( b0 );
+		scenes[ names[ 1 ] ]( b0 + rand( 2, 4.3 ) );
 
 	}
 
