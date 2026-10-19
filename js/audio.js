@@ -18,6 +18,8 @@ export class Soundscape {
 
 		this.ctx = null;
 		this.muted = false;
+		this.musicOn = true;
+		this.ambientOn = true;
 		this.mood = 'morning';
 		this.rain = 0;
 		this.swell = 0.5;
@@ -50,16 +52,28 @@ export class Soundscape {
 		this.master.connect( comp ).connect( ctx.destination );
 		this.master.gain.linearRampToValueAtTime( this.muted ? 0 : 0.9, ctx.currentTime + 3 );
 
-		this.reverb = ctx.createConvolver();
-		this.reverb.buffer = this.impulse( 5.5 );
-		const wet = ctx.createGain();
-		wet.gain.value = 0.55;
-		this.reverb.connect( wet ).connect( this.master );
+		// Two buses, each with its own echo, so either can be switched off completely:
+		// music (pads and bells) and ambient (sea, rain, thunder, whales, gulls).
+		const room = this.impulse( 5.5 );
+		const bus = ( level, on ) => {
 
+			const gain = ctx.createGain(), verb = ctx.createConvolver(), wet = ctx.createGain();
+			gain.gain.value = on ? level : 0;
+			verb.buffer = room;
+			wet.gain.value = 0.55;
+			gain.connect( this.master );
+			verb.connect( wet ).connect( gain );
+			return { gain, verb, level };
+
+		};
+
+		this.musicBus = bus( 0.5, this.musicOn );
 		this.music = ctx.createGain();
-		this.music.gain.value = 0.5;
-		this.music.connect( this.master );
-		this.music.connect( this.reverb );
+		this.music.connect( this.musicBus.gain );
+		this.music.connect( this.musicBus.verb );
+		this.ambientBus = bus( 1, this.ambientOn );
+		this.ambient = this.ambientBus.gain;
+		this.reverb = this.ambientBus.verb;
 
 		this.brown = this.noiseBuffer( 'brown' );
 		this.white = this.noiseBuffer( 'white' );
@@ -89,6 +103,20 @@ export class Soundscape {
 		const t = this.ctx.currentTime;
 		this.master.gain.cancelScheduledValues( t );
 		this.master.gain.setTargetAtTime( m ? 0 : 0.9, t, 0.4 );
+
+	}
+
+	setMusic( on ) {
+
+		this.musicOn = on;
+		if ( this.ctx ) this.musicBus.gain.gain.setTargetAtTime( on ? this.musicBus.level : 0, this.ctx.currentTime, 0.5 );
+
+	}
+
+	setAmbient( on ) {
+
+		this.ambientOn = on;
+		if ( this.ctx ) this.ambientBus.gain.gain.setTargetAtTime( on ? this.ambientBus.level : 0, this.ctx.currentTime, 0.5 );
 
 	}
 
@@ -160,7 +188,7 @@ export class Soundscape {
 		this.oceanFilter.frequency.value = 600;
 		this.oceanGain = ctx.createGain();
 		this.oceanGain.gain.value = 0.2;
-		this.loop( this.brown ).connect( this.oceanFilter ).connect( this.oceanGain ).connect( this.master );
+		this.loop( this.brown ).connect( this.oceanFilter ).connect( this.oceanGain ).connect( this.ambient );
 
 	}
 
@@ -175,7 +203,7 @@ export class Soundscape {
 		lp.frequency.value = 7000;
 		this.rainGain = ctx.createGain();
 		this.rainGain.gain.value = this.rain * 0.22;
-		this.loop( this.white ).connect( hp ).connect( lp ).connect( this.rainGain ).connect( this.master );
+		this.loop( this.white ).connect( hp ).connect( lp ).connect( this.rainGain ).connect( this.ambient );
 
 	}
 
@@ -193,7 +221,7 @@ export class Soundscape {
 		g.gain.setValueAtTime( 0, t );
 		g.gain.linearRampToValueAtTime( 0.9, t + 0.08 );
 		g.gain.exponentialRampToValueAtTime( 0.001, t + rand( 3, 5.5 ) );
-		src.connect( lp ).connect( g ).connect( this.master );
+		src.connect( lp ).connect( g ).connect( this.ambient );
 		g.connect( this.reverb );
 		src.start( t, Math.random() * 2 );
 		src.stop( t + 6 );
@@ -203,10 +231,10 @@ export class Soundscape {
 	// Route a one-shot sound through an optional stereo pan.
 	out( pan ) {
 
-		if ( ! this.ctx.createStereoPanner ) return this.master;
+		if ( ! this.ctx.createStereoPanner ) return this.ambient;
 		const p = this.ctx.createStereoPanner();
 		p.pan.value = pan;
-		p.connect( this.master );
+		p.connect( this.ambient );
 		return p;
 
 	}
@@ -311,6 +339,15 @@ export class Soundscape {
 			g.setTargetAtTime( peak * rand( 0.7, 1 ), t, len * 0.25 );
 			g.setTargetAtTime( 0.07 + this.swell * 0.08, t + len * 0.5, len * 0.22 );
 			this.nextSurge = t + len;
+
+		}
+
+		// Music is skipped entirely while switched off (the clock still advances).
+		if ( ! this.musicOn ) {
+
+			this.nextChord = Math.max( this.nextChord, ahead );
+			this.nextBell = Math.max( this.nextBell, ahead );
+			return;
 
 		}
 

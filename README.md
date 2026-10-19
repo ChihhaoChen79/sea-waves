@@ -22,7 +22,7 @@ then open `http://<your-computer-ip>:8000` on your iPhone (same Wi-Fi), or publi
 
 Tip: in Safari use Share → **Add to Home Screen** for a full-screen, app-like experience.
 
-Requires iOS 16.4+ (import maps). Sound starts after tapping **Set sail**; on iOS 17+ it plays even with the silent switch on.
+Requires iOS 16.4+ (import maps). Music and the ocean & nature sounds each have their own switch in settings; the round speaker button mutes everything. Sound starts after tapping **Set sail**; on iOS 17+ it plays even with the silent switch on.
 
 Pinch with two fingers to zoom (up to 6×) and double-tap to reset; the mouse wheel zooms on a computer.
 
