@@ -22,6 +22,7 @@
 
 	<section id="menu" class="panel-wrap">
 		<div class="panel">
+			<div class="col">
 			<h1>Sea Waves</h1>
 			<p class="sub">Choose your moment on the water</p>
 
@@ -43,7 +44,9 @@
 				<button data-weather="storm"><span>⛈️</span>Storm</button>
 				<button data-weather="fog"><span>🌫️</span>Fog</button>
 			</div>
+			</div>
 
+			<div class="col">
 			<h2>Sea life</h2>
 			<div class="chips extras" role="group" aria-label="Sea life and scenery">
 				<button data-extra="whales"><span>🐋</span>Whales</button>
@@ -59,6 +62,7 @@
 			</label>
 
 			<button id="begin" class="begin">Set sail</button>
+			</div>
 		</div>
 	</section>
 
@@ -72,7 +76,8 @@
 		</button>
 	</div>
 
-	<p id="hint">Drag to look around</p>
+	<p id="hint">Drag to look around · pinch to zoom</p>
+	<p id="zoomlevel" aria-live="polite"></p>
 
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 

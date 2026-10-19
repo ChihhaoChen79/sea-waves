@@ -65,6 +65,40 @@ button { font: inherit; color: inherit; cursor: pointer; }
 	.panel-wrap { align-items: center; }
 }
 
+/* Never let the panel run off a short screen: it scrolls instead. */
+.panel {
+	max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+	max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+}
+
+/* Phone turned sideways: two columns side by side, a little more compact. */
+@media (orientation: landscape) and (max-height: 600px) {
+	.panel-wrap {
+		align-items: center;
+		padding: calc(8px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+	}
+
+	.panel {
+		max-width: 760px;
+		max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		column-gap: 22px;
+		padding: 14px 18px;
+	}
+
+	h1 { font-size: 24px; }
+	.sub { margin-bottom: 4px; }
+	h2 { margin: 10px 0 6px; }
+	.chips button { padding: 6px 2px 5px; }
+	.chips button span { font-size: 19px; }
+	.toggle { margin: 12px 0; }
+	.begin { padding: 12px; }
+}
+
 h1 {
 	margin: 0;
 	font-size: 30px;
@@ -247,6 +281,26 @@ h2 {
 }
 
 #menu:not(.hidden) ~ #hint, #hint.gone { opacity: 0; }
+
+#zoomlevel {
+	position: fixed;
+	left: 50%;
+	top: calc(18px + env(safe-area-inset-top));
+	transform: translateX(-50%);
+	margin: 0;
+	padding: 6px 12px;
+	border-radius: 14px;
+	background: var(--glass);
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.6s ease;
+}
+
+#zoomlevel.show { opacity: 1; transition-duration: 0.15s; }
 
 #nogl {
 	position: fixed;

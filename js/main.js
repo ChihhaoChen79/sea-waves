@@ -181,13 +181,18 @@ let target = targetState( choice.time, choice.weather, sunFor( choice.time ) );
 if ( choice.time === 'night' ) nightLight( target );
 const state = cloneState( target );
 
+// Zoom divides the field of view: 1× is the natural view, up to 6× for a closer look.
+const zoom = { value: 1, target: 1, min: 0.8, max: 6 };
+let baseFov = 60;
+
 function resize() {
 
 	const w = window.innerWidth, h = window.innerHeight;
 	renderer.setSize( w, h, false );
 	camera.aspect = w / h;
 	// Keep a natural horizontal field of view in portrait on a phone.
-	camera.fov = w < h ? 72 : 55;
+	baseFov = w < h ? 72 : 55;
+	camera.fov = baseFov / zoom.value;
 	camera.updateProjectionMatrix();
 
 }
@@ -199,18 +204,69 @@ resize();
 
 const look = { yaw: 0, pitch: - 0.04, vYaw: 0, vPitch: 0, dragging: false, x: 0, y: 0 };
 
+// Two fingers pinch to zoom; one finger drags to look.
+const touches = new Map();
+let pinch = null, lastTap = 0;
+
+const zoomLabel = document.getElementById( 'zoomlevel' );
+let zoomLabelTimer = 0;
+function setZoom( z ) {
+
+	zoom.target = THREE.MathUtils.clamp( z, zoom.min, zoom.max );
+	zoomLabel.textContent = `${zoom.target.toFixed( 1 )}×`;
+	zoomLabel.classList.add( 'show' );
+	clearTimeout( zoomLabelTimer );
+	zoomLabelTimer = setTimeout( () => zoomLabel.classList.remove( 'show' ), 900 );
+	hideHint();
+
+}
+
+const pinchDistance = () => {
+
+	const [ a, b ] = [ ...touches.values() ];
+	return Math.hypot( a.x - b.x, a.y - b.y );
+
+};
+
 canvas.addEventListener( 'pointerdown', ( e ) => {
+
+	touches.set( e.pointerId, { x: e.clientX, y: e.clientY } );
+	try {
+
+		canvas.setPointerCapture( e.pointerId );
+
+	} catch ( err ) { /* pointer already gone */ }
+	if ( touches.size === 2 ) {
+
+		look.dragging = false;
+		pinch = { start: pinchDistance(), zoom: zoom.target };
+		return;
+
+	}
+
+	// Double-tap returns to the normal view
+	const now = performance.now();
+	if ( e.pointerType === 'touch' && now - lastTap < 300 ) setZoom( 1 );
+	lastTap = now;
 
 	look.dragging = true;
 	look.x = e.clientX;
 	look.y = e.clientY;
-	canvas.setPointerCapture( e.pointerId );
 
 } );
 canvas.addEventListener( 'pointermove', ( e ) => {
 
+	if ( touches.has( e.pointerId ) ) touches.set( e.pointerId, { x: e.clientX, y: e.clientY } );
+	if ( pinch && touches.size === 2 ) {
+
+		setZoom( pinch.zoom * pinchDistance() / pinch.start );
+		return;
+
+	}
+
 	if ( ! look.dragging ) return;
-	const s = 2.2 / window.innerHeight;
+	// Turn more finely when zoomed in, so the view tracks the finger.
+	const s = 2.2 / window.innerHeight / zoom.value;
 	look.vYaw = ( e.clientX - look.x ) * s;
 	look.vPitch = ( e.clientY - look.y ) * s;
 	look.yaw += look.vYaw;
@@ -220,14 +276,25 @@ canvas.addEventListener( 'pointermove', ( e ) => {
 	hideHint();
 
 } );
-const endDrag = () => {
+const endDrag = ( e ) => {
 
+	touches.delete( e.pointerId );
+	if ( touches.size < 2 ) pinch = null;
 	look.dragging = false;
 
 };
 
 canvas.addEventListener( 'pointerup', endDrag );
 canvas.addEventListener( 'pointercancel', endDrag );
+// Mouse wheel / trackpad zoom on computers
+canvas.addEventListener( 'wheel', ( e ) => {
+
+	e.preventDefault();
+	setZoom( zoom.target * Math.exp( - e.deltaY * 0.0015 ) );
+
+}, { passive: false } );
+// Stop Safari's own page pinch-zoom from fighting ours.
+[ 'gesturestart', 'gesturechange' ].forEach( ( t ) => document.addEventListener( t, ( e ) => e.preventDefault() ) );
 
 // ---------- Lightning ----------
 
@@ -348,6 +415,15 @@ function frame() {
 		- hx * 0.3 + Math.sin( t * 0.5 ) * 0.01
 	);
 	camera.quaternion.setFromEuler( euler );
+
+	// Ease the zoom toward its target
+	if ( Math.abs( zoom.target - zoom.value ) > 0.001 ) {
+
+		zoom.value += ( zoom.target - zoom.value ) * ( 1 - Math.exp( - dt * 12 ) );
+		camera.fov = baseFov / zoom.value;
+		camera.updateProjectionMatrix();
+
+	}
 
 	// Light the whale, gulls and islands to match the sky
 	hemi.color.copy( state.top ).lerp( state.horizon, 0.6 );
