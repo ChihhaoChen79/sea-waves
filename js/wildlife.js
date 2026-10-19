@@ -245,7 +245,10 @@ function islandGeometry( seed ) {
 		}
 
 		h *= 0.7 + 0.6 * noise( x * 3 + 10, z * 3 );
-		p.setY( i, h - 0.06 );
+		// Slope everything down under the sea well before the edge of the grid,
+		// otherwise the cut-off rim shows above the water and the island floats.
+		h *= 1 - ss( Math.hypot( x, z ), 0.6, 0.95 );
+		p.setY( i, h - 0.08 );
 
 	}
 

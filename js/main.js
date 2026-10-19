@@ -112,7 +112,7 @@ scene.add( hemi, sunLight );
 const sprayColor = new THREE.Color();
 const WHITE = new THREE.Color( 0xffffff );
 
-if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife };
+if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera };
 
 let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true } };
 try {
