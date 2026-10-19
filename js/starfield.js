@@ -75,7 +75,7 @@ export class StarField {
 		}
 
 		const rnd = mulberry32( 7 ), v = new THREE.Vector3();
-		for ( let i = 0; i < 1800; i ++ ) {
+		for ( let i = 0; i < 2600; i ++ ) {
 
 			if ( rnd() < 0.45 ) {
 
@@ -115,10 +115,12 @@ export class StarField {
 				${SHARED}
 				void main() {
 					vec3 dir = normalize( mat3( modelMatrix ) * position );
-					float bright = pow( 2.512, 1.0 - mag );
+					// Brighter than life on purpose: the magnitude range is squeezed so even
+					// faint stars show on a phone screen.
+					float bright = pow( 2.512, ( 2.5 - mag ) * 0.6 );
 					float twinkle = 1.0 + ( 0.15 + 0.35 * ( 1.0 - dir.y ) ) * sin( time * ( 2.0 + fract( position.x * 937.0 ) * 6.0 ) + position.z * 311.0 );
-					vColor = color * clamp( bright, 0.06, 2.2 ) * twinkle * clearSky( dir ) * visible;
-					gl_PointSize = clamp( 1.6 + 1.3 * sqrt( bright ), 1.4, 4.5 ) * pixelRatio;
+					vColor = color * clamp( bright * 1.6, 0.25, 4.0 ) * twinkle * clearSky( dir ) * visible;
+					gl_PointSize = clamp( 2.0 + 1.8 * sqrt( bright ), 2.0, 6.5 ) * pixelRatio;
 					gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( position, 1.0 );
 				}`,
 			fragmentShader: /* glsl */`
@@ -160,7 +162,7 @@ export class StarField {
 				${SHARED}
 				void main() {
 					vec3 dir = normalize( mat3( modelMatrix ) * position );
-					vAlpha = 0.22 * lines * clearSky( dir ) * visible;
+					vAlpha = 0.3 * lines * clearSky( dir ) * visible;
 					gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( position, 1.0 );
 				}`,
 			fragmentShader: /* glsl */`

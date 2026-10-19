@@ -5,7 +5,7 @@ A one-page, full-screen ocean scene made for iPhone Safari.
 - Realistic rolling sea (Three.js water with Gerstner swell, reflections and whitecaps)
 - A floating camera that rides the waves — drag to look around
 - Choose the **time** (sunrise, morning, noon, sunset, night) and **weather** (clear, cloudy, rain, storm, fog)
-- Sea life: a humpback whale that now and then breaches, blows or dives tail-up, seagulls flying past, and islands of nine different kinds (never two alike in one scene) on the horizon (each can be switched off)
+- Sea life: a humpback whale that now and then breaches, blows or dives tail-up, seagulls flying past, and islands of seven different kinds (never two alike in one scene) on the horizon (each can be switched off)
 - A real sky: the Sun, the Moon (with its true phase) and the stars sit where they really are for your region and date, worked out from your time zone (no location permission needed). "Star signs" draws and names about 20 famous constellations; the faint background stars are decorative
 - Generative peaceful music plus ocean, rain and thunder sounds (Web Audio, no audio files)
 

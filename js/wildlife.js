@@ -259,14 +259,8 @@ const ISLAND_SHAPES = {
 
 	},
 
-	// Low islet: a sandy rim, then a canopy of trees
-	cay: ( m, x, z, n, k ) => 0.15 * ss( m, 0, 0.08 ) + 0.85 * ss( m, 0.1, 0.25 ) * ( 0.55 + 0.45 * n( x * 14 * k.f, z * 14 * k.f ) ),
-
 	// A limestone tower with a rounded, bushy top
 	stack: ( m, x, z, n, k ) => ss( m, 0, 0.12 ) * ( 0.7 + 0.3 * n( x * 5 * k.f, z * 5 ) ) * ( 0.55 + 0.45 * Math.sqrt( ss( m, 0.05, 0.8 ) ) ),
-
-	// A scatter of jagged bare rocks
-	islet: ( m, x, z, n, k ) => ss( m, 0, 0.12 ) * Math.pow( Math.max( 0, 0.2 + 0.9 * n( x * 6 * k.f + 9, z * 6 * k.f ) ), 1.8 ),
 
 	// A long, far coastline of overlapping ridges
 	coast: ( m, x, z, n, k ) => ss( m, 0, 0.3 ) * ( 0.4 + 0.8 * n( x * 9 * k.f + 1, z * 1.5 ) )
@@ -281,12 +275,10 @@ const ISLAND_KINDS = {
 	mesa: { W: [ 700, 1800 ], D: [ 0.5, 0.8 ], H: [ 70, 160 ], dist: [ 2500, 5000 ] },
 	wedge: { W: [ 1000, 2200 ], D: [ 0.4, 0.6 ], H: [ 90, 200 ], dist: [ 3000, 5500 ] },
 	twin: { W: [ 1800, 3000 ], D: [ 0.4, 0.55 ], H: [ 110, 220 ], dist: [ 3500, 5500 ] },
-	cay: { W: [ 800, 1800 ], D: [ 0.3, 0.5 ], H: [ 28, 42 ], dist: [ 1500, 2400 ] },
-	stack: { W: [ 200, 450 ], D: [ 0.6, 1 ], H: [ 60, 150 ], dist: [ 1300, 3000 ] },
-	islet: { W: [ 150, 400 ], D: [ 0.5, 0.8 ], H: [ 15, 40 ], dist: [ 1200, 2200 ] }
+	stack: { W: [ 200, 450 ], D: [ 0.6, 1 ], H: [ 60, 150 ], dist: [ 1300, 3000 ] }
 };
 
-const SHORE = { hills: 'sand', twin: 'sand', cay: 'sand', stack: 'limestone', volcano: 'basalt' };
+const SHORE = { hills: 'sand', twin: 'sand', stack: 'limestone', volcano: 'basalt' };
 const CLIFF = { stack: 'limestone', mesa: 'limestone', volcano: 'basalt' };
 
 function islandGeometry( type, W, D, H ) {
@@ -328,7 +320,6 @@ function islandGeometry( type, W, D, H ) {
 
 		const steep = 1 - ss( nrm.getY( i ), 0.55, 0.8 );
 		col.copy( c.forest ).lerp( c.scrub, n( p.getX( i ) * 0.01, p.getZ( i ) * 0.01 ) * 0.8 );
-		if ( type === 'islet' ) col.copy( c.rock );
 		col.lerp( cliff, steep );
 		if ( type === 'volcano' ) col.lerp( c.basalt, ss( heights[ i ], 0.55, 0.8 ) );
 		col.lerp( shore, 1 - ss( heights[ i ] * H, 2, Math.max( 6, H * 0.08 ) ) );
