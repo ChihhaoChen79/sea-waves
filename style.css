@@ -263,6 +263,72 @@ h2 {
 
 #hud.idle:not(.hidden) { opacity: 0; pointer-events: none; }
 
+/* Volume dropdown under the corner buttons */
+.mixer {
+	position: absolute;
+	top: 54px;
+	right: 0;
+	width: min(290px, calc(100vw - 32px));
+	padding: 14px 16px 6px;
+	border-radius: 22px;
+	background: var(--glass);
+	border: 1px solid var(--glass-border);
+	-webkit-backdrop-filter: blur(22px) saturate(140%);
+	backdrop-filter: blur(22px) saturate(140%);
+	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+	transform-origin: top right;
+	animation: drop 0.22s ease-out;
+}
+
+.mixer[hidden] { display: none; }
+
+@keyframes drop {
+	from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+}
+
+.mix-row { margin-bottom: 10px; border-radius: 14px; transition: background 0.3s; }
+.mix-row.focus { background: rgba(255, 255, 255, 0.07); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.07); }
+.toggle.small { margin: 0 0 6px; font-size: 14px; color: var(--text); gap: 10px; }
+.toggle.small .track { width: 40px; height: 24px; }
+.toggle.small .knob { width: 18px; height: 18px; }
+.toggle.small input:checked + .track .knob { transform: translateX(16px); }
+
+.mix-slide { display: flex; align-items: center; gap: 10px; }
+.mix-slide output { width: 38px; text-align: right; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.mix-slide input[type="range"] {
+	--fill: 80%;
+	flex: 1;
+	height: 32px;
+	margin: 0;
+	background: transparent;
+	-webkit-appearance: none;
+	appearance: none;
+	touch-action: none;
+}
+
+.mix-slide input[type="range"]::-webkit-slider-runnable-track {
+	height: 6px;
+	border-radius: 3px;
+	background: linear-gradient(to right, #fff var(--fill), rgba(255, 255, 255, 0.22) var(--fill));
+}
+
+.mix-slide input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 24px;
+	height: 24px;
+	margin-top: -9px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.mix-slide input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); }
+.mix-slide input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: #fff; }
+.mix-slide input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: #fff; }
+
+.mix-row.off .mix-slide { opacity: 0.45; }
+
 /* A sound button that is off is dimmed and crossed out */
 .round .slash { display: none; }
 .round[aria-pressed="false"] { opacity: 0.6; }

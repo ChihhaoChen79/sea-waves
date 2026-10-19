@@ -19,6 +19,8 @@ export class Soundscape {
 		this.ctx = null;
 		this.musicOn = true;
 		this.ambientOn = true;
+		this.musicVolume = 0.8;
+		this.ambientVolume = 0.8;
 		this.mood = 'morning';
 		this.rain = 0;
 		this.swell = 0.5;
@@ -54,10 +56,10 @@ export class Soundscape {
 		// Two buses, each with its own echo, so either can be switched off completely:
 		// music (pads and bells) and ambient (sea, rain, thunder, whales, gulls).
 		const room = this.impulse( 5.5 );
-		const bus = ( level, on ) => {
+		const bus = ( level ) => {
 
 			const gain = ctx.createGain(), verb = ctx.createConvolver(), wet = ctx.createGain();
-			gain.gain.value = on ? level : 0;
+			gain.gain.value = 0;
 			verb.buffer = room;
 			wet.gain.value = 0.55;
 			gain.connect( this.master );
@@ -66,13 +68,15 @@ export class Soundscape {
 
 		};
 
-		this.musicBus = bus( 0.5, this.musicOn );
+		this.musicBus = bus( 0.5 );
 		this.music = ctx.createGain();
 		this.music.connect( this.musicBus.gain );
 		this.music.connect( this.musicBus.verb );
-		this.ambientBus = bus( 1, this.ambientOn );
+		this.ambientBus = bus( 1 );
 		this.ambient = this.ambientBus.gain;
 		this.reverb = this.ambientBus.verb;
+		this.fade( this.musicBus, this.musicOn, this.musicVolume );
+		this.fade( this.ambientBus, this.ambientOn, this.ambientVolume );
 
 		this.brown = this.noiseBuffer( 'brown' );
 		this.white = this.noiseBuffer( 'white' );
@@ -95,17 +99,27 @@ export class Soundscape {
 
 	}
 
-	setMusic( on ) {
+	// Volume 0..1 per channel; 0.8 is the original mix, and the curve is squared so
+	// the slider feels even to the ear.
+	setMusic( on, volume = 0.8 ) {
 
-		this.musicOn = on;
-		if ( this.ctx ) this.musicBus.gain.gain.setTargetAtTime( on ? this.musicBus.level : 0, this.ctx.currentTime, 0.5 );
+		this.musicOn = on && volume > 0;
+		this.musicVolume = volume;
+		this.fade( this.musicBus, this.musicOn, volume );
 
 	}
 
-	setAmbient( on ) {
+	setAmbient( on, volume = 0.8 ) {
 
-		this.ambientOn = on;
-		if ( this.ctx ) this.ambientBus.gain.gain.setTargetAtTime( on ? this.ambientBus.level : 0, this.ctx.currentTime, 0.5 );
+		this.ambientOn = on && volume > 0;
+		this.ambientVolume = volume;
+		this.fade( this.ambientBus, this.ambientOn, volume );
+
+	}
+
+	fade( bus, on, volume ) {
+
+		if ( this.ctx ) bus.gain.gain.setTargetAtTime( on ? bus.level * ( volume / 0.8 ) ** 2 : 0, this.ctx.currentTime, 0.15 );
 
 	}
 

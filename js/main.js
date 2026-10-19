@@ -125,7 +125,7 @@ const WHITE = new THREE.Color( 0xffffff );
 
 if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, get state() { return state; } };
 
-let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, stars: true }, sound: { music: true, ambient: true } };
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, stars: true }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
@@ -135,6 +135,7 @@ try {
 		choice.weather = saved.weather;
 		Object.assign( choice.extras, saved.extras );
 		Object.assign( choice.sound, saved.sound );
+		Object.assign( choice.volume, saved.volume );
 
 	}
 
@@ -570,24 +571,43 @@ function wake() {
 
 	hud.classList.remove( 'idle' );
 	clearTimeout( idleTimer );
-	idleTimer = setTimeout( () => hud.classList.add( 'idle' ), 4000 );
+	idleTimer = setTimeout( () => {
+
+		closeMixer();
+		hud.classList.add( 'idle' );
+
+	}, 4000 );
 
 }
 
 [ 'pointerdown', 'pointermove', 'touchstart' ].forEach( ( type ) => window.addEventListener( type, wake, { passive: true } ) );
 
-// Sound: music and the ocean & nature sounds each have a switch in settings and a
-// matching button in the corner; both always show the same state.
+// Sound: music and the ocean & nature sounds each have an on/off switch and a
+// volume. The switches in settings and the dropdown under the corner buttons all
+// show the same state.
 const soundButtons = { music: document.getElementById( 'musicBtn' ), ambient: document.getElementById( 'ambientBtn' ) };
+const mixer = document.getElementById( 'mixer' );
+const mix = {};
+for ( const row of mixer.querySelectorAll( '[data-mix]' ) ) {
+
+	mix[ row.dataset.mix ] = { row, toggle: row.querySelector( 'input[type=checkbox]' ), slider: row.querySelector( 'input[type=range]' ), out: row.querySelector( 'output' ) };
+
+}
 
 function applySound() {
 
-	sound.setMusic( choice.sound.music );
-	sound.setAmbient( choice.sound.ambient );
+	sound.setMusic( choice.sound.music, choice.volume.music );
+	sound.setAmbient( choice.sound.ambient, choice.volume.ambient );
 	for ( const key in toggles ) {
 
-		toggles[ key ].checked = choice.sound[ key ];
-		soundButtons[ key ].setAttribute( 'aria-pressed', choice.sound[ key ] );
+		const on = choice.sound[ key ] && choice.volume[ key ] > 0, pct = Math.round( choice.volume[ key ] * 100 );
+		toggles[ key ].checked = on;
+		soundButtons[ key ].setAttribute( 'aria-pressed', on );
+		mix[ key ].toggle.checked = on;
+		mix[ key ].row.classList.toggle( 'off', ! on );
+		mix[ key ].slider.value = pct;
+		mix[ key ].slider.style.setProperty( '--fill', `${pct}%` );
+		mix[ key ].out.textContent = `${pct}%`;
 
 	}
 
@@ -596,18 +616,52 @@ function applySound() {
 function setSound( key, on ) {
 
 	choice.sound[ key ] = on;
+	// Switching on a channel whose volume was dragged to zero brings it back to a sensible level.
+	if ( on && choice.volume[ key ] === 0 ) choice.volume[ key ] = 0.5;
 	if ( on ) sound.start(); // the tap that turned it on is the gesture iOS needs
 	applySound();
 	save();
 
 }
 
+function setVolume( key, volume ) {
+
+	choice.volume[ key ] = volume;
+	choice.sound[ key ] = volume > 0;
+	if ( volume > 0 ) sound.start();
+	applySound();
+
+}
+
+function openMixer( key ) {
+
+	const open = mixer.hidden || ! mix[ key ].row.classList.contains( 'focus' );
+	mixer.hidden = ! open;
+	for ( const k in mix ) mix[ k ].row.classList.toggle( 'focus', open && k === key );
+	for ( const k in soundButtons ) soundButtons[ k ].setAttribute( 'aria-expanded', open && k === key );
+
+}
+
+function closeMixer() {
+
+	if ( mixer.hidden ) return;
+	mixer.hidden = true;
+	for ( const k in soundButtons ) soundButtons[ k ].setAttribute( 'aria-expanded', false );
+
+}
+
 for ( const key in toggles ) {
 
 	toggles[ key ].addEventListener( 'change', () => setSound( key, toggles[ key ].checked ) );
-	soundButtons[ key ].addEventListener( 'click', () => setSound( key, ! choice.sound[ key ] ) );
+	mix[ key ].toggle.addEventListener( 'change', () => setSound( key, mix[ key ].toggle.checked ) );
+	mix[ key ].slider.addEventListener( 'input', () => setVolume( key, mix[ key ].slider.value / 100 ) );
+	mix[ key ].slider.addEventListener( 'change', save );
+	soundButtons[ key ].addEventListener( 'click', () => openMixer( key ) );
 
 }
+
+// Tapping the sea closes the dropdown.
+canvas.addEventListener( 'pointerdown', closeMixer );
 
 beginBtn.addEventListener( 'click', () => {
 
@@ -623,6 +677,7 @@ beginBtn.addEventListener( 'click', () => {
 
 document.getElementById( 'settings' ).addEventListener( 'click', () => {
 
+	closeMixer();
 	beginBtn.textContent = 'Back to the sea';
 	menu.classList.remove( 'hidden' );
 	hud.classList.add( 'hidden' );
