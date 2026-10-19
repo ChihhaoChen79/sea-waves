@@ -102,7 +102,36 @@ h2 {
 	transition: background 0.25s, color 0.25s, transform 0.15s;
 }
 
-.chips.extras { grid-template-columns: repeat(3, 1fr); }
+.chips.extras { grid-template-columns: repeat(4, 1fr); }
+
+.skyinfo {
+	margin: 8px 2px 0;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+/* Constellation names over the night sky */
+#starlabels {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 2s ease;
+}
+
+#starlabels span {
+	position: absolute;
+	left: 0;
+	top: 0;
+	font-size: 11px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: rgba(200, 216, 255, 0.85);
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+	white-space: nowrap;
+	opacity: 0;
+	transition: opacity 1s ease;
+}
 
 .chips button span { font-size: 22px; line-height: 1.1; }
 .chips button:active { transform: scale(0.95); }

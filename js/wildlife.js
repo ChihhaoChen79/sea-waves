@@ -227,35 +227,75 @@ const ISLAND_COLORS = {
 	forest: new THREE.Color( 0x34502e ),
 	scrub: new THREE.Color( 0x5d6a3e ),
 	rock: new THREE.Color( 0x6e665a ),
+	basalt: new THREE.Color( 0x4c4843 ),
 	limestone: new THREE.Color( 0xa8a293 ),
 	sand: new THREE.Color( 0xc2b08a )
 };
 
 // Height (0..1) of each kind of island for a point with coast distance m (0 at the
-// shore, rising inland) and local coordinates x, z in [-1, 1].
+// shore, rising inland), local coordinates x, z in [-1, 1], a noise function n and
+// per-island random settings k, so no two islands come out alike.
 const ISLAND_SHAPES = {
 
-	// Rolling green hills with an uneven ridgeline
-	hills: ( m, x, z, n ) => Math.pow( ss( m, 0, 0.75 ), 1.2 ) * ( 0.35 + 0.8 * n( x * 2.2 + 3, z * 2.2 ) ) +
-		0.15 * ss( m, 0.15, 0.6 ) * n( x * 7, z * 7 ),
+	// Rolling green hills with an uneven, lopsided ridgeline
+	hills: ( m, x, z, n, k ) => Math.pow( ss( m, 0, 0.75 ), k.exp ) * ( 0.35 + 0.8 * n( x * 2.2 * k.f + 3, z * 2.2 * k.f ) ) *
+		( 1 + 0.35 * k.side * x ) + 0.15 * ss( m, 0.15, 0.6 ) * n( x * 7 * k.f, z * 7 * k.f ),
+
+	// A cone with gullies down its flanks and a shallow crater
+	volcano: ( m, x, z, n, k ) => Math.pow( m, 1.3 + 0.4 * k.exp ) * ( 0.88 + 0.12 * Math.sin( Math.atan2( z, x ) * 13 + n( x * 3, z * 3 ) * 8 ) ) -
+		0.15 * ss( m, 0.86, 0.96 ),
 
 	// Sheer cliffs straight out of the sea with a gently undulating top
-	mesa: ( m, x, z, n ) => ss( m, 0, 0.07 ) * ( 0.55 + 0.25 * ss( m, 0.05, 0.6 ) + 0.25 * n( x * 4, z * 4 ) ),
+	mesa: ( m, x, z, n, k ) => ss( m, 0, 0.07 ) * ( 0.55 + 0.25 * ss( m, 0.05, 0.6 ) + 0.25 * n( x * 4 * k.f, z * 4 * k.f ) ),
+
+	// A tilted block: a tall cliff on one side sloping down to the sea on the other
+	wedge: ( m, x, z, n, k ) => ss( m, 0, 0.06 ) * ( 0.15 + 0.85 * ss( k.side * x, - 0.9, 0.55 ) ) * ( 0.8 + 0.25 * n( x * 5 * k.f, z * 5 ) ),
+
+	// Two hills joined by a low neck of land
+	twin: ( m, x, z, n, k ) => {
+
+		const bump = ( cx, s ) => Math.exp( - ( ( ( x - cx ) / 0.4 ) ** 2 + ( z / 0.45 ) ** 2 ) * 1.6 ) * s;
+		return ss( m, 0, 0.25 ) * ( Math.max( bump( k.px - 0.36, 1 ), bump( k.px + 0.36, k.h2 ) ) * ( 0.8 + 0.35 * n( x * 4 * k.f, z * 4 ) ) + 0.12 );
+
+	},
 
 	// Low islet: a sandy rim, then a canopy of trees
-	cay: ( m, x, z, n ) => 0.15 * ss( m, 0, 0.08 ) + 0.85 * ss( m, 0.1, 0.25 ) * ( 0.55 + 0.45 * n( x * 14, z * 14 ) ),
+	cay: ( m, x, z, n, k ) => 0.15 * ss( m, 0, 0.08 ) + 0.85 * ss( m, 0.1, 0.25 ) * ( 0.55 + 0.45 * n( x * 14 * k.f, z * 14 * k.f ) ),
 
-	// Limestone pillars with rounded, bushy tops
-	stack: ( m, x, z, n ) => ss( m, 0, 0.12 ) * ( 0.7 + 0.3 * n( x * 5, z * 5 ) ) * ( 0.55 + 0.45 * Math.sqrt( ss( m, 0.05, 0.8 ) ) ),
+	// A limestone tower with a rounded, bushy top
+	stack: ( m, x, z, n, k ) => ss( m, 0, 0.12 ) * ( 0.7 + 0.3 * n( x * 5 * k.f, z * 5 ) ) * ( 0.55 + 0.45 * Math.sqrt( ss( m, 0.05, 0.8 ) ) ),
+
+	// A scatter of jagged bare rocks
+	islet: ( m, x, z, n, k ) => ss( m, 0, 0.12 ) * Math.pow( Math.max( 0, 0.2 + 0.9 * n( x * 6 * k.f + 9, z * 6 * k.f ) ), 1.8 ),
 
 	// A long, far coastline of overlapping ridges
-	coast: ( m, x, z, n ) => Math.pow( ss( m, 0, 0.6 ), 1.1 ) * ( 0.25 + 0.9 * n( x * 7 + 1, z * 1.5 ) )
+	coast: ( m, x, z, n, k ) => ss( m, 0, 0.3 ) * ( 0.4 + 0.8 * n( x * 9 * k.f + 1, z * 1.5 ) )
 
 };
+
+// Size (metres) and distance of each kind: [ min, max ]; depth is a fraction of width.
+const ISLAND_KINDS = {
+	hills: { W: [ 2500, 4500 ], D: [ 0.35, 0.6 ], H: [ 180, 380 ], dist: [ 4500, 7000 ], big: true },
+	volcano: { W: [ 1800, 3000 ], D: [ 0.75, 0.95 ], H: [ 350, 600 ], dist: [ 5500, 8000 ], big: true },
+	coast: { W: [ 10000, 14000 ], D: [ 0.18, 0.25 ], H: [ 280, 480 ], dist: [ 6000, 7500 ], big: true },
+	mesa: { W: [ 700, 1800 ], D: [ 0.5, 0.8 ], H: [ 70, 160 ], dist: [ 2500, 5000 ] },
+	wedge: { W: [ 1000, 2200 ], D: [ 0.4, 0.6 ], H: [ 90, 200 ], dist: [ 3000, 5500 ] },
+	twin: { W: [ 1800, 3000 ], D: [ 0.4, 0.55 ], H: [ 110, 220 ], dist: [ 3500, 5500 ] },
+	cay: { W: [ 800, 1800 ], D: [ 0.3, 0.5 ], H: [ 28, 42 ], dist: [ 1500, 2400 ] },
+	stack: { W: [ 200, 450 ], D: [ 0.6, 1 ], H: [ 60, 150 ], dist: [ 1300, 3000 ] },
+	islet: { W: [ 150, 400 ], D: [ 0.5, 0.8 ], H: [ 15, 40 ], dist: [ 1200, 2200 ] }
+};
+
+const SHORE = { hills: 'sand', twin: 'sand', cay: 'sand', stack: 'limestone', volcano: 'basalt' };
+const CLIFF = { stack: 'limestone', mesa: 'limestone', volcano: 'basalt' };
 
 function islandGeometry( type, W, D, H ) {
 
 	const n = hashNoise( Math.random() * 1000 );
+	const k = {
+		f: rand( 0.7, 1.4 ), exp: rand( 0.9, 1.5 ), side: Math.random() < 0.5 ? 1 : - 1,
+		px: rand( - 0.12, 0.12 ), h2: rand( 0.55, 0.85 ), wobble: rand( 0.2, 0.4 )
+	};
 	const segX = type === 'coast' ? 200 : 96, segZ = type === 'coast' ? 40 : 96;
 	const g = new THREE.PlaneGeometry( 2, 2, segX, segZ );
 	g.rotateX( - Math.PI / 2 );
@@ -268,10 +308,10 @@ function islandGeometry( type, W, D, H ) {
 		const x = p.getX( i ), z = p.getZ( i );
 		// Irregular coastline: the outline radius wobbles with angle, and bays bite in.
 		const a = Math.atan2( z, x );
-		const outline = 0.6 + 0.32 * n( Math.cos( a ) * 1.3 + 7, Math.sin( a ) * 1.3 + 7 );
+		const outline = 0.6 + k.wobble * n( Math.cos( a ) * 1.3 + 7, Math.sin( a ) * 1.3 + 7 );
 		const r = Math.hypot( x, z ) / outline + 0.35 * ( n( x * 3 + 20, z * 3 ) - 0.5 );
 		const m = THREE.MathUtils.clamp( 1 - r, 0, 1 );
-		const h = shape( m, x, z, n ) * ( 1 - ss( Math.hypot( x, z ), 0.85, 0.98 ) );
+		const h = Math.max( 0, shape( m, x, z, n, k ) ) * ( 1 - ss( Math.hypot( x, z ), 0.85, 0.98 ) );
 		heights[ i ] = h;
 		p.setXYZ( i, x * W / 2, h * H - Math.max( 3, H * 0.06 ), z * D / 2 );
 
@@ -282,14 +322,15 @@ function islandGeometry( type, W, D, H ) {
 	// Paint by slope and height: rock on steep faces, green on gentle ground, a pale
 	// band where the land meets the water.
 	const nrm = g.attributes.normal, c = ISLAND_COLORS, col = new THREE.Color();
-	const shore = type === 'cay' || type === 'hills' ? c.sand : type === 'stack' ? c.limestone : c.rock;
-	const cliff = type === 'stack' || type === 'mesa' ? c.limestone : c.rock;
+	const shore = c[ SHORE[ type ] || 'rock' ], cliff = c[ CLIFF[ type ] || 'rock' ];
 	const colors = new Float32Array( p.count * 3 );
 	for ( let i = 0; i < p.count; i ++ ) {
 
 		const steep = 1 - ss( nrm.getY( i ), 0.55, 0.8 );
 		col.copy( c.forest ).lerp( c.scrub, n( p.getX( i ) * 0.01, p.getZ( i ) * 0.01 ) * 0.8 );
+		if ( type === 'islet' ) col.copy( c.rock );
 		col.lerp( cliff, steep );
+		if ( type === 'volcano' ) col.lerp( c.basalt, ss( heights[ i ], 0.55, 0.8 ) );
 		col.lerp( shore, 1 - ss( heights[ i ] * H, 2, Math.max( 6, H * 0.08 ) ) );
 		col.multiplyScalar( 0.85 + 0.3 * n( p.getX( i ) * 0.05 + 50, p.getZ( i ) * 0.05 ) );
 		colors.set( [ col.r, col.g, col.b ], i * 3 );
@@ -558,75 +599,49 @@ export class Wildlife {
 
 	}
 
+	// Every island in view is a different kind, so none look like copies.
 	buildIslands( pick, b0 = Math.random() * Math.PI * 2 ) {
 
+		this.islands.clear();
 		const mat = new THREE.MeshStandardMaterial( { vertexColors: true, roughness: 1 } );
-		const add = ( type, bearing, dist, W, D, H ) => {
+		let kinds = pick;
+		if ( ! kinds ) {
 
-			const mesh = new THREE.Mesh( islandGeometry( type, W, D, H ), mat );
-			mesh.position.set( Math.sin( bearing ) * dist, 0, Math.cos( bearing ) * dist );
-			// Long side roughly facing us
-			mesh.rotation.y = bearing + Math.PI / 2 + rand( - 0.3, 0.3 );
-			this.islands.add( mesh );
+			const shuffled = Object.keys( ISLAND_KINDS ).sort( () => Math.random() - 0.5 );
+			const big = shuffled.filter( ( t ) => ISLAND_KINDS[ t ].big ).slice( 0, 2 );
+			const small = shuffled.filter( ( t ) => ! ISLAND_KINDS[ t ].big ).slice( 0, Math.random() < 0.5 ? 3 : 4 );
+			kinds = [ ...big, ...small ];
 
-		};
+		}
 
-		const scenes = {
+		// Two groups in different parts of the horizon
+		const groups = [ b0, b0 + rand( 2, 4.3 ) ];
+		const placed = [];
+		kinds.forEach( ( type, i ) => {
 
-			// A big hilly island with smaller islets and rocks around it
-			archipelago: ( b ) => {
+			const K = ISLAND_KINDS[ type ];
+			const W = rand( ...K.W ), D = W * rand( ...K.D ), H = rand( ...K.H );
+			let bearing, dist;
+			for ( let tries = 0; tries < 15; tries ++ ) {
 
-				const d = rand( 4500, 6500 ), W = rand( 2500, 4000 );
-				add( 'hills', b, d, W, W * rand( 0.4, 0.6 ), rand( 180, 380 ) );
-				for ( let i = 0, k = 2 + Math.floor( Math.random() * 3 ); i < k; i ++ ) {
-
-					const type = [ 'hills', 'mesa', 'stack', 'hills' ][ i % 4 ];
-					const w = type === 'stack' ? rand( 150, 350 ) : rand( 400, 1200 );
-					add( type, b + rand( 0.08, 0.35 ) * ( i % 2 ? 1 : - 1 ), d + rand( - 1800, 800 ), w, w * rand( 0.5, 0.9 ), type === 'stack' ? rand( 50, 110 ) : rand( 40, 150 ) );
-
-				}
-
-			},
-
-			// Mainland on the horizon with an island in front of it
-			coast: ( b ) => {
-
-				add( 'coast', b, rand( 7000, 8500 ), rand( 8000, 12000 ), rand( 2000, 3000 ), rand( 300, 550 ) );
-				const w = rand( 1200, 2500 );
-				add( Math.random() < 0.5 ? 'hills' : 'mesa', b + rand( - 0.25, 0.25 ), rand( 3500, 5000 ), w, w * 0.5, rand( 100, 250 ) );
-
-			},
-
-			// A bay of limestone pillars and cliffy islets
-			karst: ( b ) => {
-
-				for ( let i = 0, k = 4 + Math.floor( Math.random() * 4 ); i < k; i ++ ) {
-
-					const type = Math.random() < 0.7 ? 'stack' : 'mesa';
-					const w = type === 'stack' ? rand( 150, 450 ) : rand( 400, 900 );
-					add( type, b + rand( - 0.4, 0.4 ), rand( 1300, 3200 ), w, w * rand( 0.6, 1 ), type === 'stack' ? rand( 50, 150 ) : rand( 60, 120 ) );
-
-				}
-
-			},
-
-			// A low tree-covered islet with green hills behind
-			tropical: ( b ) => {
-
-				const w = rand( 800, 1800 );
-				add( 'cay', b, rand( 1500, 2200 ), w, w * rand( 0.3, 0.5 ), rand( 28, 42 ) );
-				const W = rand( 2500, 4500 );
-				add( 'hills', b + rand( - 0.12, 0.12 ), rand( 5500, 7500 ), W, W * 0.5, rand( 200, 400 ) );
+				bearing = groups[ i % 2 ] + rand( - 0.45, 0.45 );
+				dist = rand( ...K.dist );
+				// Avoid sitting right on top of a neighbour at the same distance.
+				const clash = placed.some( ( o ) => Math.abs( Math.atan2( Math.sin( o.bearing - bearing ), Math.cos( o.bearing - bearing ) ) ) <
+					( W / dist + o.W / o.dist ) * 0.45 && Math.abs( o.dist - dist ) < ( D + o.D ) * 0.6 + 400 );
+				if ( ! clash ) break;
 
 			}
 
-		};
+			placed.push( { bearing, dist, W, D } );
+			const mesh = new THREE.Mesh( islandGeometry( type, W, D, H ), mat );
+			mesh.position.set( Math.sin( bearing ) * dist, 0, Math.cos( bearing ) * dist );
+			// Long side (local x) roughly side-on to us
+			mesh.rotation.y = bearing + rand( - 0.3, 0.3 );
+			mesh.userData.kind = type;
+			this.islands.add( mesh );
 
-		// Two of the four layouts, in different parts of the horizon
-		this.islands.clear();
-		const names = pick || Object.keys( scenes ).sort( () => Math.random() - 0.5 );
-		scenes[ names[ 0 ] ]( b0 );
-		scenes[ names[ 1 ] ]( b0 + rand( 2, 4.3 ) );
+		} );
 
 	}
 

@@ -84,6 +84,7 @@ export function createWater( scene ) {
 	u.waveTime = { value: 0 };
 	u.waveScale = { value: 1 };
 	u.foamAmount = { value: 0 };
+	u.baseGlow = { value: 0.1 };
 	u.foamColor = { value: new THREE.Color( 0xffffff ) };
 	u.size.value = 1.4;
 
@@ -132,11 +133,13 @@ export function createWater( scene ) {
 				varying vec3 vWaveNormal;
 				varying float vCrest;
 				uniform float foamAmount;
+				uniform float baseGlow;
 				uniform vec3 foamColor;` )
 		.replace( 'vec3 surfaceNormal = normalize( noise.xzy * vec3( 1.5, 1.0, 1.5 ) );', `
 					vec3 rip = noise.xzy * vec3( 1.5, 1.0, 1.5 );
 					vec3 surfaceNormal = normalize( vWaveNormal * rip.y + vec3( rip.x, 0.0, rip.z ) * 0.6 );` )
 		.replace( 'sunColor * diffuseLight * 0.3', 'waterColor * diffuseLight * 1.5' )
+		.replace( 'vec3( 0.1 ) + reflectionSample * 0.9', 'vec3( baseGlow ) + reflectionSample * 0.9' )
 		.replace( 'float rf0 = 0.3;', 'float rf0 = 0.08;' )
 		.replace( 'vec3 outgoingLight = albedo;', `
 					float foam = smoothstep( 0.45, 1.0, vCrest + noise.x * 0.35 ) * foamAmount;
@@ -148,6 +151,29 @@ export function createWater( scene ) {
 	return water;
 
 }
+
+// Cloud layer shared by the sky and the star field, so stars hide behind the same clouds.
+export const CLOUD_GLSL = /* glsl */`
+	float cl_hash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+	float cl_noise( vec2 p ) {
+		vec2 i = floor( p ), f = fract( p );
+		f = f * f * ( 3.0 - 2.0 * f );
+		return mix( mix( cl_hash( i ), cl_hash( i + vec2( 1, 0 ) ), f.x ),
+		            mix( cl_hash( i + vec2( 0, 1 ) ), cl_hash( i + vec2( 1, 1 ) ), f.x ), f.y );
+	}
+	float fbm( vec2 p ) {
+		float v = 0.0, a = 0.5;
+		for ( int i = 0; i < 5; i ++ ) { v += a * cl_noise( p ); p = p * 2.03 + 17.1; a *= 0.5; }
+		return v;
+	}
+	vec2 cloudUV( vec3 dir, float time ) {
+		return dir.xz / ( dir.y + 0.08 ) * 0.9 + vec2( time * 0.006, time * 0.002 );
+	}
+	float cloudNoise( vec3 dir, float time ) { return fbm( cloudUV( dir, time ) ); }
+	float cloudDensity( float n, float dirY, float cover ) {
+		float c = 1.0 - cover;
+		return smoothstep( c - 0.12, c + 0.28, n ) * smoothstep( - 0.02, 0.05, dirY );
+	}`;
 
 export function createSky( scene ) {
 
@@ -168,7 +194,10 @@ export function createSky( scene ) {
 			cloudCover: { value: 0.2 },
 			cloudLit: { value: new THREE.Color() },
 			cloudShade: { value: new THREE.Color() },
-			stars: { value: 0 },
+			moonDir: { value: new THREE.Vector3( 0, - 1, 0 ) },
+			moonSun: { value: new THREE.Vector3( 0, - 1, 0 ) },
+			moonBright: { value: 0 },
+			moonColor: { value: new THREE.Color( 0xf4efe4 ) },
 			flash: { value: 0 }
 		},
 		vertexShader: /* glsl */`
@@ -191,22 +220,30 @@ export function createSky( scene ) {
 			uniform float cloudCover;
 			uniform vec3 cloudLit;
 			uniform vec3 cloudShade;
-			uniform float stars;
+			uniform vec3 moonDir;
+			uniform vec3 moonSun;
+			uniform float moonBright;
+			uniform vec3 moonColor;
 			uniform float flash;
 			varying vec3 vDir;
+			${CLOUD_GLSL}
 
-			float hash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
-			float hash3( vec3 p ) { return fract( sin( dot( p, vec3( 127.1, 311.7, 74.7 ) ) ) * 43758.5453 ); }
-			float noise( vec2 p ) {
-				vec2 i = floor( p ), f = fract( p );
-				f = f * f * ( 3.0 - 2.0 * f );
-				return mix( mix( hash( i ), hash( i + vec2( 1, 0 ) ), f.x ),
-				            mix( hash( i + vec2( 0, 1 ) ), hash( i + vec2( 1, 1 ) ), f.x ), f.y );
-			}
-			float fbm( vec2 p ) {
-				float v = 0.0, a = 0.5;
-				for ( int i = 0; i < 5; i ++ ) { v += a * noise( p ); p = p * 2.03 + 17.1; a *= 0.5; }
-				return v;
+			// The Moon with its real phase: light the visible half-sphere from the Sun's direction.
+			vec3 moon( vec3 dir, out float glowAmt ) {
+				const float R = 0.0105;
+				float md = dot( dir, moonDir );
+				vec3 off = dir - moonDir * md;
+				float r = length( off ) / R;
+				float phase = 0.5 - 0.5 * dot( moonDir, moonSun );
+				glowAmt = ( pow( max( md, 0.0 ), 3000.0 ) * 0.5 + pow( max( md, 0.0 ), 300.0 ) * 0.08 ) * phase;
+				if ( md < 0.0 || r > 1.0 ) return vec3( 0.0 );
+				vec3 nrm = off / R - moonDir * sqrt( max( 0.0, 1.0 - r * r ) );
+				float lit = smoothstep( - 0.04, 0.06, dot( nrm, moonSun ) );
+				vec3 ax = normalize( cross( moonDir, vec3( 0.0, 1.0, 0.0 ) ) ), ay = cross( ax, moonDir );
+				vec2 q = vec2( dot( off, ax ), dot( off, ay ) ) / R;
+				float maria = smoothstep( 0.42, 0.62, fbm( q * 2.2 + 4.0 ) );
+				float edge = 1.0 - smoothstep( 0.9, 1.0, r );
+				return moonColor * ( 1.0 - 0.35 * maria ) * ( lit + 0.025 ) * edge;
 			}
 
 			void main() {
@@ -225,25 +262,23 @@ export function createSky( scene ) {
 				float halo = ( pow( sd, 600.0 ) * 1.2 + pow( sd, 40.0 ) * 0.35 + pow( sd, 6.0 ) * 0.18 ) * glow;
 				vec3 sunLight = sunColor * ( halo + disk * 18.0 ) * sunVisible;
 
-				// Stars
-				vec3 sc = floor( dir * 260.0 );
-				float s = hash3( sc );
-				float tw = 0.6 + 0.4 * sin( time * ( 1.0 + s * 3.0 ) + s * 40.0 );
-				float star = step( 0.9965, s ) * tw * smoothstep( 0.02, 0.25, dir.y ) * stars;
+				float moonGlow;
+				vec3 moonLight = ( moon( dir, moonGlow ) * 1.6 + moonColor * moonGlow ) * moonBright;
 
 				// Clouds: fbm projected on a plane high above the sea
 				float density = 0.0;
 				if ( dir.y > 0.0 ) {
-					vec2 uv = dir.xz / ( dir.y + 0.08 ) * 0.9 + vec2( time * 0.006, time * 0.002 );
+					vec2 uv = cloudUV( dir, time );
 					float n = fbm( uv );
-					float c = 1.0 - cloudCover;
-					density = smoothstep( c - 0.12, c + 0.28, n ) * smoothstep( - 0.02, 0.05, dir.y );
+					density = cloudDensity( n, dir.y, cloudCover );
 					float lit = clamp( 0.5 + ( n - fbm( uv + sunDir.xz * 0.06 ) ) * 4.0, 0.0, 1.0 );
 					vec3 cloud = mix( cloudShade, cloudLit, lit );
 					cloud += sunColor * pow( sd, 8.0 ) * 0.6 * sunVisible;
-					col = mix( col + sunLight + star, cloud, density );
+					// Moonlight silvers the clouds around the Moon
+					cloud += moonColor * pow( max( dot( dir, moonDir ), 0.0 ), 30.0 ) * 0.25 * moonBright * ( 0.5 - 0.5 * dot( moonDir, moonSun ) );
+					col = mix( col + sunLight + moonLight, cloud, density );
 				} else {
-					col += sunLight * 0.3;
+					col += sunLight * 0.3 + moonLight * 0.3;
 				}
 
 				// Fade to the fog colour at the horizon so the sea's edge disappears

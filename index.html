@@ -18,6 +18,8 @@
 <body>
 	<canvas id="scene" aria-label="Animated ocean scene"></canvas>
 
+	<div id="starlabels" aria-hidden="true"></div>
+
 	<section id="menu" class="panel-wrap">
 		<div class="panel">
 			<h1>Sea Waves</h1>
@@ -31,6 +33,7 @@
 				<button data-time="sunset"><span>🌇</span>Sunset</button>
 				<button data-time="night"><span>🌙</span>Night</button>
 			</div>
+			<p id="skyinfo" class="skyinfo"></p>
 
 			<h2>Weather</h2>
 			<div class="chips" role="group" aria-label="Weather">
@@ -46,6 +49,7 @@
 				<button data-extra="whales"><span>🐋</span>Whales</button>
 				<button data-extra="gulls"><span>🕊️</span>Seagulls</button>
 				<button data-extra="islands"><span>⛰️</span>Islands</button>
+				<button data-extra="stars"><span>✨</span>Star signs</button>
 			</div>
 
 			<label class="toggle">
