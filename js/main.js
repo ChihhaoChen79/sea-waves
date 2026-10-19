@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createWater, createSky, createRain, waveHeight } from './ocean.js';
 import { Soundscape } from './audio.js';
+import { Wildlife } from './wildlife.js';
 
 // ---------- Presets ----------
 
@@ -48,7 +49,9 @@ function targetState( timeKey, weatherKey ) {
 		stars: t.stars * ( 1 - w.cover ),
 		cover: w.cover, haze: w.haze, fog: w.fog, waves: w.waves, rain: w.rain,
 		foam: w.foam, sunVis: w.sunVis, storm: w.storm,
-		exposure: night ? 0.75 : 0.85 - w.gloom * 0.15
+		exposure: night ? 0.75 : 0.85 - w.gloom * 0.15,
+		ambient: night ? 0.35 : 1.6 - w.gloom * 0.6,
+		direct: ( night ? 0.5 : 2.6 ) * ( 0.25 + 0.75 * w.sunVis )
 	};
 
 }
@@ -100,12 +103,28 @@ const water = createWater( scene );
 const sky = createSky( scene );
 const rain = createRain( scene );
 const sound = new Soundscape();
+const wildlife = new Wildlife( scene, sound );
 
-let choice = { time: 'sunset', weather: 'clear' };
+// Lighting for the whale, gulls and islands (the sea and sky shade themselves)
+const hemi = new THREE.HemisphereLight( 0xffffff, 0x223344, 1 );
+const sunLight = new THREE.DirectionalLight( 0xffffff, 1 );
+scene.add( hemi, sunLight );
+const sprayColor = new THREE.Color();
+const WHITE = new THREE.Color( 0xffffff );
+
+if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife };
+
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
-	if ( saved && TIMES[ saved.time ] && WEATHERS[ saved.weather ] ) choice = saved;
+	if ( saved && TIMES[ saved.time ] && WEATHERS[ saved.weather ] ) {
+
+		choice.time = saved.time;
+		choice.weather = saved.weather;
+		Object.assign( choice.extras, saved.extras );
+
+	}
 
 } catch ( e ) { /* storage unavailable */ }
 
@@ -231,7 +250,7 @@ function frame() {
 	wu.waveTime.value = t;
 	wu.waveScale.value = state.waves;
 	wu.foamAmount.value = state.foam;
-	wu.foamColor.value.copy( state.horizon ).lerp( new THREE.Color( 0xffffff ), 0.5 ).multiplyScalar( 0.9 );
+	wu.foamColor.value.copy( state.horizon ).lerp( WHITE, 0.5 ).multiplyScalar( 0.9 );
 	wu.sunDirection.value.copy( sunDir );
 	wu.sunColor.value.copy( state.sun ).multiplyScalar( 0.4 + state.sunVis * 0.6 );
 	wu.waterColor.value.copy( state.water );
@@ -254,6 +273,8 @@ function frame() {
 	const hz = waveHeight( cx, cz + e, t, state.waves ) - h;
 	camera.position.set( cx, 2.6 + h * 0.85, cz );
 	sky.position.copy( camera.position );
+	// Keep the detailed middle of the ocean mesh under the camera (snapped to the grid spacing).
+	water.position.set( Math.round( cx / 2 ) * 2, 0, Math.round( cz / 2 ) * 2 );
 	rain.position.set( cx, camera.position.y - 2, cz );
 
 	if ( ! look.dragging ) {
@@ -276,6 +297,17 @@ function frame() {
 		- hx * 0.3 + Math.sin( t * 0.5 ) * 0.01
 	);
 	camera.quaternion.setFromEuler( euler );
+
+	// Light the whale, gulls and islands to match the sky
+	hemi.color.copy( state.top ).lerp( state.horizon, 0.6 );
+	hemi.groundColor.copy( state.water );
+	hemi.intensity = state.ambient + flash * 2;
+	sunLight.position.copy( sunDir );
+	sunLight.color.copy( state.sun );
+	sunLight.intensity = state.direct;
+	sprayColor.copy( wu.foamColor.value ).multiplyScalar( state.ambient > 1 ? 1 : 0.35 + 0.65 * state.ambient ).addScalar( flash * 0.3 );
+	wildlife.update( t, dt, camera, state.waves, sprayColor,
+		renderer.domElement.height / ( 2 * Math.tan( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) );
 
 	renderer.render( scene, camera );
 
@@ -337,6 +369,7 @@ function syncChips() {
 
 	document.querySelectorAll( '[data-time]' ).forEach( ( b ) => b.setAttribute( 'aria-pressed', b.dataset.time === choice.time ) );
 	document.querySelectorAll( '[data-weather]' ).forEach( ( b ) => b.setAttribute( 'aria-pressed', b.dataset.weather === choice.weather ) );
+	document.querySelectorAll( '[data-extra]' ).forEach( ( b ) => b.setAttribute( 'aria-pressed', choice.extras[ b.dataset.extra ] ) );
 
 }
 
@@ -344,6 +377,8 @@ function apply( turn ) {
 
 	target = targetState( choice.time, choice.weather );
 	sound.setScene( choice.time, choice.weather );
+	wildlife.setConditions( choice.time, choice.weather );
+	wildlife.setEnabled( choice.extras );
 	if ( turn ) faceSun();
 	try {
 
@@ -368,10 +403,31 @@ document.querySelectorAll( '[data-weather]' ).forEach( ( b ) => b.addEventListen
 
 } ) );
 
+document.querySelectorAll( '[data-extra]' ).forEach( ( b ) => b.addEventListener( 'click', () => {
+
+	choice.extras[ b.dataset.extra ] = ! choice.extras[ b.dataset.extra ];
+	syncChips();
+	apply( false );
+
+} ) );
+
+// Fade the corner buttons away when the screen hasn't been touched for a while.
+let idleTimer = 0;
+function wake() {
+
+	hud.classList.remove( 'idle' );
+	clearTimeout( idleTimer );
+	idleTimer = setTimeout( () => hud.classList.add( 'idle' ), 4000 );
+
+}
+
+[ 'pointerdown', 'pointermove', 'touchstart' ].forEach( ( type ) => window.addEventListener( type, wake, { passive: true } ) );
+
 beginBtn.addEventListener( 'click', () => {
 
 	menu.classList.add( 'hidden' );
 	hud.classList.remove( 'hidden' );
+	wake();
 	if ( musicToggle.checked ) {
 
 		sound.setMuted( false );

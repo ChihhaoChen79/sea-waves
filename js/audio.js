@@ -200,6 +200,103 @@ export class Soundscape {
 
 	}
 
+	// Route a one-shot sound through an optional stereo pan.
+	out( pan ) {
+
+		if ( ! this.ctx.createStereoPanner ) return this.master;
+		const p = this.ctx.createStereoPanner();
+		p.pan.value = pan;
+		p.connect( this.master );
+		return p;
+
+	}
+
+	splash( level, delay = 0, pan = 0 ) {
+
+		if ( ! this.ctx || level < 0.02 ) return;
+		const ctx = this.ctx, t = ctx.currentTime + delay, len = 1.2 + level * 2.5;
+		const src = ctx.createBufferSource();
+		src.buffer = this.white;
+		const lp = ctx.createBiquadFilter();
+		lp.type = 'lowpass';
+		lp.frequency.setValueAtTime( 2500, t );
+		lp.frequency.exponentialRampToValueAtTime( 300, t + len );
+		const g = ctx.createGain();
+		g.gain.setValueAtTime( 0, t );
+		g.gain.linearRampToValueAtTime( 0.5 * level, t + 0.04 );
+		g.gain.exponentialRampToValueAtTime( 0.001, t + len );
+		const out = this.out( pan );
+		src.connect( lp ).connect( g ).connect( out );
+		g.connect( this.reverb );
+		src.start( t, Math.random() * 2 );
+		src.stop( t + len + 0.1 );
+
+		// The deep "whump" of a body hitting the water
+		const thud = ctx.createOscillator();
+		thud.frequency.setValueAtTime( 90, t );
+		thud.frequency.exponentialRampToValueAtTime( 35, t + 0.6 );
+		const tg = ctx.createGain();
+		tg.gain.setValueAtTime( 0.6 * level, t );
+		tg.gain.exponentialRampToValueAtTime( 0.001, t + 0.8 );
+		thud.connect( tg ).connect( out );
+		thud.start( t );
+		thud.stop( t + 0.9 );
+
+	}
+
+	spout( level, delay = 0, pan = 0 ) {
+
+		if ( ! this.ctx ) return;
+		const ctx = this.ctx, t = ctx.currentTime + delay;
+		const src = ctx.createBufferSource();
+		src.buffer = this.white;
+		const bp = ctx.createBiquadFilter();
+		bp.type = 'bandpass';
+		bp.frequency.setValueAtTime( 700, t );
+		bp.frequency.linearRampToValueAtTime( 1100, t + 1.2 );
+		bp.Q.value = 0.7;
+		const g = ctx.createGain();
+		g.gain.setValueAtTime( 0, t );
+		g.gain.linearRampToValueAtTime( 0.35 * level, t + 0.15 );
+		g.gain.exponentialRampToValueAtTime( 0.001, t + 1.8 );
+		src.connect( bp ).connect( g ).connect( this.out( pan ) );
+		g.connect( this.reverb );
+		src.start( t, Math.random() * 2 );
+		src.stop( t + 2 );
+
+	}
+
+	// A short "kee-ow" call, sometimes repeated.
+	gull( level, delay = 0, pan = 0 ) {
+
+		if ( ! this.ctx || level < 0.03 ) return;
+		const ctx = this.ctx, out = this.out( pan );
+		const calls = 1 + Math.floor( Math.random() * 3 ), base = rand( 1500, 1900 );
+		for ( let i = 0; i < calls; i ++ ) {
+
+			const t = ctx.currentTime + delay + i * rand( 0.28, 0.4 ), len = rand( 0.22, 0.35 );
+			const o = ctx.createOscillator();
+			o.type = 'sawtooth';
+			o.frequency.setValueAtTime( base * 0.8, t );
+			o.frequency.linearRampToValueAtTime( base * 1.1, t + len * 0.25 );
+			o.frequency.exponentialRampToValueAtTime( base * 0.6, t + len );
+			const bp = ctx.createBiquadFilter();
+			bp.type = 'bandpass';
+			bp.frequency.value = base * 1.3;
+			bp.Q.value = 3;
+			const g = ctx.createGain();
+			g.gain.setValueAtTime( 0, t );
+			g.gain.linearRampToValueAtTime( 0.07 * level, t + 0.03 );
+			g.gain.exponentialRampToValueAtTime( 0.001, t + len );
+			o.connect( bp ).connect( g ).connect( out );
+			g.connect( this.reverb );
+			o.start( t );
+			o.stop( t + len + 0.05 );
+
+		}
+
+	}
+
 	schedule() {
 
 		const ctx = this.ctx, now = ctx.currentTime, ahead = now + 0.6;

@@ -102,6 +102,8 @@ h2 {
 	transition: background 0.25s, color 0.25s, transform 0.15s;
 }
 
+.chips.extras { grid-template-columns: repeat(3, 1fr); }
+
 .chips button span { font-size: 22px; line-height: 1.1; }
 .chips button:active { transform: scale(0.95); }
 
@@ -194,6 +196,8 @@ h2 {
 	stroke-width: 1.8;
 	stroke-linecap: round;
 }
+
+#hud.idle:not(.hidden) { opacity: 0; pointer-events: none; }
 
 #sound .off { display: none; }
 #sound[aria-pressed="false"] .on { display: none; }
