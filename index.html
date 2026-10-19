@@ -10,9 +10,20 @@
 	<meta name="theme-color" content="#0b1422">
 	<meta name="description" content="Drift on a calm, realistic sea. Pick the time of day and the weather, and relax to gentle music.">
 	<title>Sea Waves</title>
-	<link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="style.css?v=10">
 	<script type="importmap">
-		{ "imports": { "three": "./lib/three.module.min.js" } }
+		{
+			"imports": {
+				"three": "./lib/three.module.min.js?v=10",
+				"./lib/Water.js": "./lib/Water.js?v=10",
+				"./js/ocean.js": "./js/ocean.js?v=10",
+				"./js/audio.js": "./js/audio.js?v=10",
+				"./js/wildlife.js": "./js/wildlife.js?v=10",
+				"./js/astro.js": "./js/astro.js?v=10",
+				"./js/starfield.js": "./js/starfield.js?v=10",
+				"./js/starcatalog.js": "./js/starcatalog.js?v=10"
+			}
+		}
 	</script>
 </head>
 <body>
@@ -73,9 +84,11 @@
 	</section>
 
 	<div id="hud" class="hidden">
-		<button id="sound" class="round" aria-pressed="true" aria-label="Sound on/off">
-			<svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none"/></svg>
-			<svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 9.5l5 5m0-5l-5 5" fill="none"/></svg>
+		<button id="musicBtn" class="round" aria-pressed="true" aria-label="Peaceful music on/off">
+			<svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/><path class="slash" d="M4 4l16 16" fill="none"/></svg>
+		</button>
+		<button id="ambientBtn" class="round" aria-pressed="true" aria-label="Ocean and nature sounds on/off">
+			<svg viewBox="0 0 24 24"><path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 19c2-2 4-2 6 0s4 2 6 0 4-2 6 0" fill="none"/><path class="slash" d="M4 4l16 16" fill="none"/></svg>
 		</button>
 		<button id="settings" class="round" aria-label="Change time and weather">
 			<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" fill="none"/><circle cx="16" cy="7" r="2" fill="none"/><circle cx="10" cy="17" r="2" fill="none"/></svg>
@@ -87,6 +100,7 @@
 
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 
-	<script type="module" src="js/main.js"></script>
+	<!-- Bump v= on every release so phones never mix cached old scripts with a new page. -->
+	<script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>

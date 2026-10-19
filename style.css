@@ -263,9 +263,10 @@ h2 {
 
 #hud.idle:not(.hidden) { opacity: 0; pointer-events: none; }
 
-#sound .off { display: none; }
-#sound[aria-pressed="false"] .on { display: none; }
-#sound[aria-pressed="false"] .off { display: block; }
+/* A sound button that is off is dimmed and crossed out */
+.round .slash { display: none; }
+.round[aria-pressed="false"] { opacity: 0.6; }
+.round[aria-pressed="false"] .slash { display: block; }
 
 #hint {
 	position: fixed;

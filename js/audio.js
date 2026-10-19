@@ -17,7 +17,6 @@ export class Soundscape {
 	constructor() {
 
 		this.ctx = null;
-		this.muted = false;
 		this.musicOn = true;
 		this.ambientOn = true;
 		this.mood = 'morning';
@@ -50,7 +49,7 @@ export class Soundscape {
 		this.master.gain.value = 0;
 		const comp = ctx.createDynamicsCompressor();
 		this.master.connect( comp ).connect( ctx.destination );
-		this.master.gain.linearRampToValueAtTime( this.muted ? 0 : 0.9, ctx.currentTime + 3 );
+		this.master.gain.linearRampToValueAtTime( 0.9, ctx.currentTime + 3 );
 
 		// Two buses, each with its own echo, so either can be switched off completely:
 		// music (pads and bells) and ambient (sea, rain, thunder, whales, gulls).
@@ -93,16 +92,6 @@ export class Soundscape {
 			else ctx.resume();
 
 		} );
-
-	}
-
-	setMuted( m ) {
-
-		this.muted = m;
-		if ( ! this.ctx ) return;
-		const t = this.ctx.currentTime;
-		this.master.gain.cancelScheduledValues( t );
-		this.master.gain.setTargetAtTime( m ? 0 : 0.9, t, 0.4 );
 
 	}
 

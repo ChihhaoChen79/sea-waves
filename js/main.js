@@ -488,7 +488,6 @@ requestAnimationFrame( frame );
 const menu = document.getElementById( 'menu' );
 const hud = document.getElementById( 'hud' );
 const hint = document.getElementById( 'hint' );
-const soundBtn = document.getElementById( 'sound' );
 const toggles = { music: document.getElementById( 'music' ), ambient: document.getElementById( 'ambient' ) };
 const beginBtn = document.getElementById( 'begin' );
 let started = false;
@@ -577,42 +576,36 @@ function wake() {
 
 [ 'pointerdown', 'pointermove', 'touchstart' ].forEach( ( type ) => window.addEventListener( type, wake, { passive: true } ) );
 
-// Sound: music and ambient each have a switch in settings; the round button in the
-// corner mutes everything at once.
-const anySound = () => choice.sound.music || choice.sound.ambient;
+// Sound: music and the ocean & nature sounds each have a switch in settings and a
+// matching button in the corner; both always show the same state.
+const soundButtons = { music: document.getElementById( 'musicBtn' ), ambient: document.getElementById( 'ambientBtn' ) };
 
 function applySound() {
 
 	sound.setMusic( choice.sound.music );
 	sound.setAmbient( choice.sound.ambient );
-	soundBtn.setAttribute( 'aria-pressed', anySound() && ! sound.muted );
+	for ( const key in toggles ) {
+
+		toggles[ key ].checked = choice.sound[ key ];
+		soundButtons[ key ].setAttribute( 'aria-pressed', choice.sound[ key ] );
+
+	}
 
 }
 
-function syncToggles() {
+function setSound( key, on ) {
 
-	for ( const key in toggles ) toggles[ key ].checked = choice.sound[ key ] && ! sound.muted;
+	choice.sound[ key ] = on;
+	if ( on ) sound.start(); // the tap that turned it on is the gesture iOS needs
+	applySound();
+	save();
 
 }
 
 for ( const key in toggles ) {
 
-	toggles[ key ].addEventListener( 'change', () => {
-
-		choice.sound[ key ] = toggles[ key ].checked;
-		// Coming back from a full mute: other channels stay as they were shown (off).
-		if ( sound.muted ) for ( const k in toggles ) choice.sound[ k ] = toggles[ k ].checked;
-		if ( toggles[ key ].checked ) {
-
-			sound.setMuted( false );
-			sound.start(); // a tap on a switch counts as the gesture iOS needs
-
-		}
-
-		applySound();
-		save();
-
-	} );
+	toggles[ key ].addEventListener( 'change', () => setSound( key, toggles[ key ].checked ) );
+	soundButtons[ key ].addEventListener( 'click', () => setSound( key, ! choice.sound[ key ] ) );
 
 }
 
@@ -621,18 +614,7 @@ beginBtn.addEventListener( 'click', () => {
 	menu.classList.add( 'hidden' );
 	hud.classList.remove( 'hidden' );
 	wake();
-	// Go by what the switches show: while muted they both show off, and leaving
-	// them that way keeps the sound muted.
-	const shown = { music: toggles.music.checked, ambient: toggles.ambient.checked };
-	if ( shown.music || shown.ambient ) {
-
-		choice.sound = shown;
-		sound.setMuted( false );
-		sound.start();
-
-	} else if ( ! sound.muted ) choice.sound = shown;
-
-	save();
+	if ( choice.sound.music || choice.sound.ambient ) sound.start();
 	applySound();
 	if ( ! started ) setTimeout( hideHint, 6000 );
 	started = true;
@@ -642,29 +624,11 @@ beginBtn.addEventListener( 'click', () => {
 document.getElementById( 'settings' ).addEventListener( 'click', () => {
 
 	beginBtn.textContent = 'Back to the sea';
-	syncToggles();
 	menu.classList.remove( 'hidden' );
 	hud.classList.add( 'hidden' );
 
 } );
 
-soundBtn.addEventListener( 'click', () => {
-
-	if ( soundBtn.getAttribute( 'aria-pressed' ) === 'true' ) sound.setMuted( true );
-	else {
-
-		// Turning sound back on with both switches off brings both back.
-		if ( ! anySound() ) choice.sound = { music: true, ambient: true };
-		sound.setMuted( false );
-		sound.start();
-		save();
-
-	}
-
-	applySound();
-
-} );
-
 syncChips();
-syncToggles();
+applySound();
 apply( true );
