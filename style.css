@@ -136,7 +136,7 @@ h2 {
 	transition: background 0.25s, color 0.25s, transform 0.15s;
 }
 
-.chips.extras { grid-template-columns: repeat(4, 1fr); }
+.chips.extras { grid-template-columns: repeat(5, 1fr); }
 .chips.times { grid-template-columns: repeat(6, 1fr); gap: 5px; }
 .chips.times button { font-size: 11px; letter-spacing: -0.01em; }
 

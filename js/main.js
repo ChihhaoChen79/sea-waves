@@ -5,18 +5,19 @@ import { Wildlife } from './wildlife.js';
 import { observer, plan, julian, sunDir as realSunDir, moonDir as realMoonDir, skyRotation, toWorld } from './astro.js';
 import { StarField } from './starfield.js';
 import { SkyTraffic } from './skytraffic.js';
+import { HorizonClock } from './clock.js';
 
 // ---------- Presets ----------
 
 // Sun and Moon positions come from the real sky (astro.js); these set the colours.
 const TIMES = {
-	sunrise: { dark: 0, trail: 0xffd6b8, seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
-	morning: { dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
-	noon: { dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
-	sunset: { dark: 0, trail: 0xffb890, seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
+	sunrise: { clock: [ 0xfff0dc, 0xffa86a, 0.75, 1 ], dark: 0, trail: 0xffd6b8, seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
+	morning: { clock: [ 0xffffff, 0xb8dcff, 0.4, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
+	noon: { clock: [ 0xffffff, 0x9ccaff, 0.35, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
+	sunset: { clock: [ 0xffe0bd, 0xff7a3d, 0.85, 1 ], dark: 0, trail: 0xffb890, seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
 	// Nautical twilight: deep blue overhead, a dusky glow where the sun went down
-	twilight: { dark: 0.75, trail: 0x9c7f95, seaGlow: 0.035, top: 0x0a1a40, horizon: 0x8c7194, sun: 0x9eaad6, sunSize: 1, water: 0x071630, stars: 0.8, disk: 0, moon: 1.15 },
-	night: { dark: 1, trail: 0x262c3a, seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
+	twilight: { clock: [ 0xece6ff, 0xa58cff, 0.7, 1.2 ], dark: 0.75, trail: 0x9c7f95, seaGlow: 0.035, top: 0x0a1a40, horizon: 0x8c7194, sun: 0x9eaad6, sunSize: 1, water: 0x071630, stars: 0.8, disk: 0, moon: 1.15 },
+	night: { clock: [ 0xe2ebff, 0x6f9bff, 0.75, 1.35 ], dark: 1, trail: 0x262c3a, seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
 };
 
 const WEATHERS = {
@@ -53,6 +54,10 @@ function targetState( timeKey, weatherKey, sunAt ) {
 		top, horizon, sun: sunCol, cloudLit, cloudShade,
 		water: weathered( t.water, w.gloom * 0.5, dark ),
 		trail: new THREE.Color( t.trail ).multiplyScalar( 1 - w.gloom * 0.4 ), dark,
+		// Giant clock: [ text colour, glow colour, glow amount, brightness ], greyed by the weather
+		clockCore: new THREE.Color( t.clock[ 0 ] ).lerp( GLOOM_TINT, w.gloom * 0.45 ).multiplyScalar( t.clock[ 3 ] * ( 1 - w.gloom * 0.2 ) ),
+		clockGlow: new THREE.Color( t.clock[ 1 ] ).lerp( GLOOM_TINT, w.gloom * 0.6 ),
+		clockGlowAmount: t.clock[ 2 ] * ( 1 - w.gloom * 0.4 ) + w.haze * 0.4,
 		stars: t.stars,
 		cover: w.cover, haze: w.haze, fog: w.fog, waves: w.waves, rain: w.rain,
 		foam: w.foam, sunVis: w.sunVis, storm: w.storm,
@@ -114,6 +119,7 @@ const sound = new Soundscape();
 const wildlife = new Wildlife( scene, sound );
 const starField = new StarField( scene );
 const skyTraffic = new SkyTraffic( scene );
+const horizonClock = new HorizonClock( scene );
 
 // The real sky over the viewer's region (guessed from their time zone)
 const here = observer();
@@ -128,9 +134,9 @@ scene.add( hemi, sunLight );
 const sprayColor = new THREE.Color();
 const WHITE = new THREE.Color( 0xffffff );
 
-if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, skyTraffic, get state() { return state; } };
+if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, skyTraffic, horizonClock, get state() { return state; } };
 
-let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true, clock: false }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
@@ -457,6 +463,10 @@ function frame() {
 		trailColor: state.trail, pixelRatio: renderer.getPixelRatio(),
 		pixelScale: renderer.domElement.height / ( 2 * Math.tan( THREE.MathUtils.degToRad( camera.fov ) / 2 ) )
 	} );
+	horizonClock.update( t, dt, camera, {
+		core: state.clockCore, glow: state.clockGlow, glowAmount: state.clockGlowAmount,
+		fogColor: scene.fog.color, fogDensity: state.fog, dim: 1 - state.rain * 0.2
+	} );
 
 	renderer.render( scene, camera );
 
@@ -555,6 +565,7 @@ function apply( turn ) {
 	wildlife.setConditions( choice.time, choice.weather );
 	wildlife.setEnabled( choice.extras );
 	skyTraffic.setPlanes( choice.extras.planes );
+	horizonClock.setOn( choice.extras.clock );
 	if ( turn ) faceSun();
 	save();
 

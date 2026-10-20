@@ -9,6 +9,7 @@ A one-page, full-screen ocean scene made for iPhone Safari.
 - A real sky: the Sun, the Moon (with its true phase) and the stars sit where they really are for your region and date, worked out from your time zone (no location permission needed). the faint background stars are decorative
 - Airliners crossing at cruising height, leaving contrails that slowly spread and fade, with blinking red/green navigation lights after dark (switch: Planes)
 - Shooting stars now and then on clear dark skies
+- A giant screen-saver clock on the horizon, reflected in the sea, coloured to match the time and weather (switch: Clock)
 - Generative peaceful music plus ocean, rain and thunder sounds (Web Audio, no audio files)
 
 ## Run it
