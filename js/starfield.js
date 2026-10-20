@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { STARS, CONSTELLATIONS } from './starcatalog.js';
+import { STARS } from './starcatalog.js';
 import { CLOUD_GLSL } from './ocean.js';
 
 const RADIUS = 14000;
@@ -32,7 +32,8 @@ function mulberry32( a ) {
 
 }
 
-const SHARED = /* glsl */`
+// Shared by everything drawn in the sky (stars, planes, shooting stars).
+export const SKY_GLSL = /* glsl */`
 	uniform float time;
 	uniform float cloudCover;
 	uniform float visible;
@@ -45,19 +46,17 @@ const SHARED = /* glsl */`
 
 export class StarField {
 
-	constructor( scene, labelLayer ) {
+	constructor( scene ) {
 
 		this.group = new THREE.Group();
 		this.group.matrixAutoUpdate = false;
 		this.group.frustumCulled = false;
-		this.rotation = new THREE.Matrix4();
 
 		const uniforms = {
 			time: { value: 0 },
 			cloudCover: { value: 0 },
 			visible: { value: 0 },
-			pixelRatio: { value: 1 },
-			lines: { value: 0 }
+			pixelRatio: { value: 1 }
 		};
 		this.uniforms = uniforms;
 
@@ -112,7 +111,7 @@ export class StarField {
 				attribute vec3 color;
 				uniform float pixelRatio;
 				varying vec3 vColor;
-				${SHARED}
+				${SKY_GLSL}
 				void main() {
 					vec3 dir = normalize( mat3( modelMatrix ) * position );
 					// Brighter than life on purpose: the magnitude range is squeezed so even
@@ -135,105 +134,24 @@ export class StarField {
 		points.frustumCulled = false;
 		this.group.add( points );
 
-		// Constellation figures
-		const lp = [];
-		for ( const con of CONSTELLATIONS ) {
-
-			for ( const [ a, b ] of con.lines ) {
-
-				const A = equatorial( STARS[ a ][ 0 ], STARS[ a ][ 1 ] ), B = equatorial( STARS[ b ][ 0 ], STARS[ b ][ 1 ] );
-				// Stop the line just short of each star so the stars stay crisp.
-				lp.push( ...A.clone().lerp( B, 0.08 ).toArray(), ...A.lerp( B, 0.92 ).toArray() );
-
-			}
-
-		}
-
-		const lg = new THREE.BufferGeometry();
-		lg.setAttribute( 'position', new THREE.Float32BufferAttribute( lp, 3 ) );
-		const lines = new THREE.LineSegments( lg, new THREE.ShaderMaterial( {
-			uniforms,
-			transparent: true,
-			depthWrite: false,
-			blending: THREE.AdditiveBlending,
-			vertexShader: /* glsl */`
-				varying float vAlpha;
-				uniform float lines;
-				${SHARED}
-				void main() {
-					vec3 dir = normalize( mat3( modelMatrix ) * position );
-					vAlpha = 0.3 * lines * clearSky( dir ) * visible;
-					gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( position, 1.0 );
-				}`,
-			fragmentShader: /* glsl */`
-				varying float vAlpha;
-				void main() {
-					gl_FragColor = vec4( vec3( 0.65, 0.78, 1.0 ) * vAlpha, 1.0 );
-					#include <colorspace_fragment>
-				}`
-		} ) );
-		lines.frustumCulled = false;
-		this.group.add( lines );
 		scene.add( this.group );
 
-		// Name labels, placed over each figure's centre
-		this.labels = CONSTELLATIONS.map( ( con ) => {
-
-			const keys = con.anchor ? [ con.anchor ] : [ ...new Set( con.lines.flat() ) ];
-			const centre = new THREE.Vector3();
-			keys.forEach( ( k ) => centre.add( equatorial( STARS[ k ][ 0 ], STARS[ k ][ 1 ] ) ) );
-			centre.normalize();
-			const el = document.createElement( 'span' );
-			el.textContent = con.name;
-			labelLayer.appendChild( el );
-			return { el, centre, shown: false };
-
-		} );
-		this.layer = labelLayer;
 		this.tmp = new THREE.Vector3();
 
 	}
 
-	update( camera, rotation, { time, cloudCover, visible, lines, pixelRatio, haze } ) {
+	update( camera, rotation, { time, cloudCover, visible, pixelRatio, haze } ) {
 
 		const u = this.uniforms;
 		u.time.value = time;
 		u.cloudCover.value = cloudCover;
 		u.visible.value = visible * ( 1 - haze );
-		u.lines.value = lines;
 		u.pixelRatio.value = pixelRatio;
 		this.group.visible = u.visible.value > 0.01;
 
-		this.rotation.copy( rotation );
 		this.group.matrix.copy( rotation ).scale( this.tmp.setScalar( RADIUS ) ).setPosition( camera.position );
 		this.group.matrixWorld.copy( this.group.matrix );
 		this.group.matrixWorldNeedsUpdate = false;
-
-		// Labels fade in only on a clear, dark sky.
-		const show = this.group.visible && lines > 0.5 && u.visible.value * ( 1 - cloudCover ) > 0.25;
-		this.layer.style.opacity = show ? 0.75 : 0;
-		if ( ! show ) return;
-		const w = window.innerWidth, h = window.innerHeight;
-		for ( const l of this.labels ) {
-
-			const d = this.tmp.copy( l.centre ).applyMatrix4( this.rotation );
-			let on = d.y > 0.06;
-			if ( on ) {
-
-				d.multiplyScalar( RADIUS ).add( camera.position ).project( camera );
-				on = d.z < 1 && Math.abs( d.x ) < 1.1 && Math.abs( d.y ) < 1.1;
-				if ( on ) l.el.style.transform = `translate(${ ( d.x + 1 ) / 2 * w }px, ${ ( 1 - d.y ) / 2 * h }px) translate(-50%, -50%)`;
-
-			}
-
-			if ( on !== l.shown ) {
-
-				l.el.style.opacity = on ? 1 : 0;
-				l.shown = on;
-
-			}
-
-		}
 
 	}
 

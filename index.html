@@ -10,26 +10,25 @@
 	<meta name="theme-color" content="#0b1422">
 	<meta name="description" content="Drift on a calm, realistic sea. Pick the time of day and the weather, and relax to gentle music.">
 	<title>Sea Waves</title>
-	<link rel="stylesheet" href="style.css?v=12">
+	<link rel="stylesheet" href="style.css?v=13">
 	<script type="importmap">
 		{
 			"imports": {
-				"three": "./lib/three.module.min.js?v=12",
-				"./lib/Water.js": "./lib/Water.js?v=12",
-				"./js/ocean.js": "./js/ocean.js?v=12",
-				"./js/audio.js": "./js/audio.js?v=12",
-				"./js/wildlife.js": "./js/wildlife.js?v=12",
-				"./js/astro.js": "./js/astro.js?v=12",
-				"./js/starfield.js": "./js/starfield.js?v=12",
-				"./js/starcatalog.js": "./js/starcatalog.js?v=12"
+				"three": "./lib/three.module.min.js?v=13",
+				"./lib/Water.js": "./lib/Water.js?v=13",
+				"./js/ocean.js": "./js/ocean.js?v=13",
+				"./js/audio.js": "./js/audio.js?v=13",
+				"./js/wildlife.js": "./js/wildlife.js?v=13",
+				"./js/astro.js": "./js/astro.js?v=13",
+				"./js/starfield.js": "./js/starfield.js?v=13",
+				"./js/starcatalog.js": "./js/starcatalog.js?v=13",
+				"./js/skytraffic.js": "./js/skytraffic.js?v=13"
 			}
 		}
 	</script>
 </head>
 <body>
 	<canvas id="scene" aria-label="Animated ocean scene"></canvas>
-
-	<div id="starlabels" aria-hidden="true"></div>
 
 	<section id="menu" class="panel-wrap">
 		<div class="panel">
@@ -38,11 +37,12 @@
 			<p class="sub">Choose your moment on the water</p>
 
 			<h2>Time</h2>
-			<div class="chips" role="group" aria-label="Time of day">
+			<div class="chips times" role="group" aria-label="Time of day">
 				<button data-time="sunrise"><span>🌅</span>Sunrise</button>
 				<button data-time="morning"><span>🌤️</span>Morning</button>
 				<button data-time="noon"><span>☀️</span>Noon</button>
 				<button data-time="sunset"><span>🌇</span>Sunset</button>
+				<button data-time="twilight"><span>🌌</span>Twilight</button>
 				<button data-time="night"><span>🌙</span>Night</button>
 			</div>
 			<p id="skyinfo" class="skyinfo"></p>
@@ -63,7 +63,8 @@
 				<button data-extra="whales"><span>🐋</span>Whales</button>
 				<button data-extra="gulls"><span>🕊️</span>Seagulls</button>
 				<button data-extra="islands"><span>⛰️</span>Islands</button>
-				<button data-extra="stars"><span>✨</span>Star signs</button>
+				<button data-extra="planes"><span>✈️</span>Planes</button>
+
 			</div>
 
 			<h2>Sound</h2>
@@ -111,6 +112,6 @@
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 
 	<!-- Bump v= on every release so phones never mix cached old scripts with a new page. -->
-	<script type="module" src="js/main.js?v=12"></script>
+	<script type="module" src="js/main.js?v=13"></script>
 </body>
 </html>

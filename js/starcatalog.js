@@ -72,42 +72,6 @@ export const STARS = {
 	canopus: [ 6.399, - 52.70, - 0.74, W ], achernar: [ 1.629, - 57.24, 0.46, B ], fomalhaut: [ 22.961, - 29.62, 1.16, W ]
 };
 
-export const CONSTELLATIONS = [
-	{ name: 'Orion', lines: [ [ 'meissa', 'betelgeuse' ], [ 'meissa', 'bellatrix' ], [ 'betelgeuse', 'alnitak' ], [ 'bellatrix', 'mintaka' ],
-		[ 'alnitak', 'alnilam' ], [ 'alnilam', 'mintaka' ], [ 'alnitak', 'saiph' ], [ 'mintaka', 'rigel' ] ] },
-	{ name: 'Big Dipper', lines: [ [ 'dubhe', 'merak' ], [ 'merak', 'phecda' ], [ 'phecda', 'megrez' ], [ 'megrez', 'dubhe' ],
-		[ 'megrez', 'alioth' ], [ 'alioth', 'mizar' ], [ 'mizar', 'alkaid' ] ] },
-	{ name: 'Little Dipper', lines: [ [ 'polaris', 'yildun' ], [ 'yildun', 'epsUMi' ], [ 'epsUMi', 'zetUMi' ], [ 'zetUMi', 'kochab' ],
-		[ 'kochab', 'pherkad' ], [ 'pherkad', 'etaUMi' ], [ 'etaUMi', 'zetUMi' ] ] },
-	{ name: 'Cassiopeia', lines: [ [ 'caph', 'schedar' ], [ 'schedar', 'gamCas' ], [ 'gamCas', 'ruchbah' ], [ 'ruchbah', 'segin' ] ] },
-	{ name: 'Cygnus', lines: [ [ 'deneb', 'sadr' ], [ 'sadr', 'albireo' ], [ 'delCyg', 'sadr' ], [ 'sadr', 'gienah' ] ] },
-	{ name: 'Lyra', lines: [ [ 'vega', 'zetLyr' ], [ 'zetLyr', 'delLyr' ], [ 'delLyr', 'sulafat' ], [ 'sulafat', 'sheliak' ], [ 'sheliak', 'zetLyr' ] ] },
-	{ name: 'Aquila', lines: [ [ 'tarazed', 'altair' ], [ 'altair', 'alshain' ] ] },
-	{ name: 'Scorpius', lines: [ [ 'graffias', 'dschubba' ], [ 'dschubba', 'piSco' ], [ 'dschubba', 'sigSco' ], [ 'sigSco', 'antares' ],
-		[ 'antares', 'tauSco' ], [ 'tauSco', 'epsSco' ], [ 'epsSco', 'muSco' ], [ 'muSco', 'zetSco' ], [ 'zetSco', 'etaSco' ],
-		[ 'etaSco', 'sargas' ], [ 'sargas', 'iotSco' ], [ 'iotSco', 'kapSco' ], [ 'kapSco', 'shaula' ], [ 'shaula', 'lesath' ] ] },
-	{ name: 'Leo', lines: [ [ 'regulus', 'etaLeo' ], [ 'etaLeo', 'algieba' ], [ 'algieba', 'adhafera' ], [ 'adhafera', 'muLeo' ],
-		[ 'muLeo', 'epsLeo' ], [ 'algieba', 'zosma' ], [ 'zosma', 'denebola' ], [ 'denebola', 'chertan' ], [ 'chertan', 'regulus' ],
-		[ 'zosma', 'chertan' ] ] },
-	{ name: 'Taurus', lines: [ [ 'elnath', 'epsTau' ], [ 'epsTau', 'delTau' ], [ 'delTau', 'gamTau' ], [ 'gamTau', 'theTau' ],
-		[ 'theTau', 'aldebaran' ], [ 'aldebaran', 'zetTau' ] ] },
-	{ name: 'Pleiades', lines: [] , anchor: 'alcyone' },
-	{ name: 'Gemini', lines: [ [ 'castor', 'mebsuta' ], [ 'mebsuta', 'tejat' ], [ 'pollux', 'wasat' ], [ 'wasat', 'alhena' ], [ 'castor', 'pollux' ] ] },
-	{ name: 'Canis Major', lines: [ [ 'mirzam', 'sirius' ], [ 'sirius', 'wezen' ], [ 'wezen', 'adhara' ], [ 'wezen', 'aludra' ] ] },
-	{ name: 'Southern Cross', lines: [ [ 'acrux', 'gacrux' ], [ 'mimosa', 'delCru' ] ] },
-	{ name: 'Pointers', lines: [ [ 'rigilKent', 'hadar' ] ] },
-	{ name: 'Pegasus', lines: [ [ 'markab', 'scheat' ], [ 'scheat', 'alpheratz' ], [ 'alpheratz', 'algenib' ], [ 'algenib', 'markab' ], [ 'markab', 'enif' ] ] },
-	{ name: 'Andromeda', lines: [ [ 'alpheratz', 'delAnd' ], [ 'delAnd', 'mirach' ], [ 'mirach', 'almach' ] ] },
-	{ name: 'Sagittarius', lines: [ [ 'alnasl', 'kausMed' ], [ 'alnasl', 'kausAus' ], [ 'kausMed', 'kausAus' ], [ 'kausMed', 'kausBor' ],
-		[ 'kausBor', 'phiSgr' ], [ 'phiSgr', 'kausMed' ], [ 'phiSgr', 'nunki' ], [ 'nunki', 'tauSgr' ], [ 'tauSgr', 'ascella' ],
-		[ 'ascella', 'phiSgr' ], [ 'ascella', 'kausAus' ] ] },
-	{ name: 'Boötes', lines: [ [ 'arcturus', 'izar' ], [ 'izar', 'delBoo' ], [ 'delBoo', 'nekkar' ], [ 'nekkar', 'seginus' ],
-		[ 'seginus', 'rhoBoo' ], [ 'rhoBoo', 'arcturus' ], [ 'arcturus', 'muphrid' ] ] },
-	{ name: 'Auriga', lines: [ [ 'capella', 'menkalinan' ], [ 'menkalinan', 'theAur' ], [ 'theAur', 'elnath' ], [ 'elnath', 'iotAur' ],
-		[ 'iotAur', 'epsAur' ], [ 'epsAur', 'capella' ] ] },
-	{ name: 'Perseus', lines: [ [ 'gamPer', 'mirfak' ], [ 'mirfak', 'delPer' ], [ 'delPer', 'epsPer' ], [ 'epsPer', 'zetPer' ], [ 'mirfak', 'algol' ] ] }
-];
-
 // Approximate home of each common time zone, so the sky can be drawn for the
 // viewer's region without asking for their location. [ latitude, longitude ]
 export const ZONES = {

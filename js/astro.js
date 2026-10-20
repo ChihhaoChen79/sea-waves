@@ -170,8 +170,17 @@ export function plan( timeKey, o, now = Date.now() ) {
 
 	};
 
-	const target = { sunrise: [ 3, true ], morning: [ Math.min( 22, peak[ 1 ] * 0.6 ), true ], sunset: [ 2.5, false ] }[ timeKey ];
+	// Twilight is the middle of evening nautical twilight: the sun 9° below the horizon.
+	const target = { sunrise: [ 3, true ], morning: [ Math.min( 22, peak[ 1 ] * 0.6 ), true ], sunset: [ 2.5, false ], twilight: [ - 9, false ] }[ timeKey ];
 	let ms = target ? crossing( target[ 0 ], target[ 1 ] ) : peak[ 0 ];
+	if ( timeKey === 'twilight' ) {
+
+		// The sky never gets that dark tonight (summer far north): use the darkest moment.
+		if ( ms === null ) ms = samples.slice( iPeak ).reduce( ( a, b ) => ( b[ 1 ] < a[ 1 ] ? b : a ) )[ 0 ];
+		return { ms, live: false, sun: sunDir( julian( ms ), o, new THREE.Vector3() ) };
+
+	}
+
 	let elev = target ? target[ 0 ] : THREE.MathUtils.clamp( peak[ 1 ], 20, 75 );
 	if ( ms === null ) ms = peak[ 0 ]; // midnight sun or polar night: fall back to midday
 	if ( peak[ 1 ] < 3 ) elev = target ? target[ 0 ] : 20;

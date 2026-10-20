@@ -128,7 +128,7 @@ export class Soundscape {
 
 	setScene( time, weather ) {
 
-		this.mood = time;
+		this.mood = time === 'twilight' ? 'night' : time;
 		this.rain = { rain: 0.7, storm: 1 }[ weather ] || 0;
 		this.swell = { clear: 0.45, cloudy: 0.55, rain: 0.65, storm: 1, fog: 0.35 }[ weather ] ?? 0.5;
 		this.storm = weather === 'storm';

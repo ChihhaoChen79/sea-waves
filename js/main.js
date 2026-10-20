@@ -4,16 +4,19 @@ import { Soundscape } from './audio.js';
 import { Wildlife } from './wildlife.js';
 import { observer, plan, julian, sunDir as realSunDir, moonDir as realMoonDir, skyRotation, toWorld } from './astro.js';
 import { StarField } from './starfield.js';
+import { SkyTraffic } from './skytraffic.js';
 
 // ---------- Presets ----------
 
 // Sun and Moon positions come from the real sky (astro.js); these set the colours.
 const TIMES = {
-	sunrise: { seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
-	morning: { seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
-	noon: { seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
-	sunset: { seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
-	night: { seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
+	sunrise: { dark: 0, trail: 0xffd6b8, seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
+	morning: { dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
+	noon: { dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
+	sunset: { dark: 0, trail: 0xffb890, seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
+	// Nautical twilight: deep blue overhead, a dusky glow where the sun went down
+	twilight: { dark: 0.75, trail: 0x9c7f95, seaGlow: 0.035, top: 0x0a1a40, horizon: 0x8c7194, sun: 0x9eaad6, sunSize: 1, water: 0x071630, stars: 0.8, disk: 0, moon: 1.15 },
+	night: { dark: 1, trail: 0x262c3a, seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
 };
 
 const WEATHERS = {
@@ -27,10 +30,10 @@ const WEATHERS = {
 const GLOOM_TINT = new THREE.Color( 0x6b7480 );
 
 // Mix a preset colour toward a flat grey as the weather gets worse.
-function weathered( hex, gloom, night ) {
+function weathered( hex, gloom, dark ) {
 
 	const c = new THREE.Color( hex );
-	const grey = GLOOM_TINT.clone().multiplyScalar( night ? 0.12 : 0.55 + 0.45 * c.getHSL( {} ).l );
+	const grey = GLOOM_TINT.clone().multiplyScalar( THREE.MathUtils.lerp( 0.55 + 0.45 * c.getHSL( {} ).l, 0.12, dark ) );
 	return c.lerp( grey, gloom );
 
 }
@@ -38,23 +41,24 @@ function weathered( hex, gloom, night ) {
 function targetState( timeKey, weatherKey, sunAt ) {
 
 	const t = TIMES[ timeKey ], w = WEATHERS[ weatherKey ];
-	const night = timeKey === 'night';
-	const top = weathered( t.top, w.gloom, night );
-	const horizon = weathered( t.horizon, w.gloom * 0.9, night );
+	const dark = t.dark;
+	const top = weathered( t.top, w.gloom, dark );
+	const horizon = weathered( t.horizon, w.gloom * 0.9, dark );
 	const sunCol = new THREE.Color( t.sun );
-	const cloudLit = night ? new THREE.Color( 0x1a2236 ) : new THREE.Color( 0xffffff ).lerp( sunCol, 0.35 ).lerp( GLOOM_TINT, w.gloom * 0.7 );
-	const cloudShade = night ? new THREE.Color( 0x070a12 ) : horizon.clone().lerp( new THREE.Color( 0x3a4150 ), 0.4 + w.gloom * 0.4 );
+	const cloudLit = new THREE.Color( 0xffffff ).lerp( sunCol, 0.35 ).lerp( GLOOM_TINT, w.gloom * 0.7 ).lerp( new THREE.Color( 0x1a2236 ), dark );
+	const cloudShade = horizon.clone().lerp( new THREE.Color( 0x3a4150 ), 0.4 + w.gloom * 0.4 ).lerp( new THREE.Color( 0x070a12 ), dark );
 
 	return {
 		skySun: sunAt.clone(), light: sunAt.clone(), seaGlow: t.seaGlow, sunSize: t.sunSize, disk: t.disk, moonBright: t.moon,
 		top, horizon, sun: sunCol, cloudLit, cloudShade,
-		water: weathered( t.water, w.gloom * 0.5, night ),
+		water: weathered( t.water, w.gloom * 0.5, dark ),
+		trail: new THREE.Color( t.trail ).multiplyScalar( 1 - w.gloom * 0.4 ), dark,
 		stars: t.stars,
 		cover: w.cover, haze: w.haze, fog: w.fog, waves: w.waves, rain: w.rain,
 		foam: w.foam, sunVis: w.sunVis, storm: w.storm,
-		exposure: night ? 0.75 : 0.85 - w.gloom * 0.15,
-		ambient: night ? 0.35 : 1.6 - w.gloom * 0.6,
-		direct: ( night ? 0.5 : 2.6 ) * ( 0.25 + 0.75 * w.sunVis )
+		exposure: THREE.MathUtils.lerp( 0.85 - w.gloom * 0.15, 0.75, dark ),
+		ambient: THREE.MathUtils.lerp( 1.6 - w.gloom * 0.6, 0.35, dark ),
+		direct: THREE.MathUtils.lerp( 2.6, 0.5, dark ) * ( 0.25 + 0.75 * w.sunVis )
 	};
 
 }
@@ -108,7 +112,8 @@ const sky = createSky( scene );
 const rain = createRain( scene );
 const sound = new Soundscape();
 const wildlife = new Wildlife( scene, sound );
-const starField = new StarField( scene, document.getElementById( 'starlabels' ) );
+const starField = new StarField( scene );
+const skyTraffic = new SkyTraffic( scene );
 
 // The real sky over the viewer's region (guessed from their time zone)
 const here = observer();
@@ -123,9 +128,9 @@ scene.add( hemi, sunLight );
 const sprayColor = new THREE.Color();
 const WHITE = new THREE.Color( 0xffffff );
 
-if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, get state() { return state; } };
+if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, skyTraffic, get state() { return state; } };
 
-let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, stars: true }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
@@ -160,27 +165,33 @@ function updateSky( t ) {
 
 }
 
-// At night the Moon (if it's up) lights the sea; otherwise only faint skyglow does.
+// After dark the Moon (if it's up) lights the sea; otherwise only faint skyglow does.
+// In twilight the glow left in the sky where the sun set adds its own light.
+const isDark = ( timeKey ) => TIMES[ timeKey ].dark > 0;
+
 function nightLight( tgt ) {
 
 	const up = THREE.MathUtils.smoothstep( sky3.moon.y, - 0.02, 0.1 );
 	const strength = up * Math.sqrt( sky3.lit );
+	const dusk = choice.time === 'twilight' ? 0.35 : 0;
 	tgt.skySun.copy( sky3.sun );
-	tgt.light.copy( up > 0.01 ? sky3.moon : SKYGLOW );
-	tgt.sun.copy( MOONLIGHT ).multiplyScalar( 0.12 + 0.88 * strength );
-	tgt.direct = 0.5 * ( 0.15 + 0.85 * strength ) * ( 0.25 + 0.75 * WEATHERS[ choice.weather ].sunVis );
+	if ( up > 0.01 ) tgt.light.copy( sky3.moon );
+	else if ( dusk ) tgt.light.set( sky3.sun.x, 0.4, sky3.sun.z ).normalize();
+	else tgt.light.copy( SKYGLOW );
+	tgt.sun.copy( MOONLIGHT ).multiplyScalar( Math.min( 1, 0.12 + dusk + 0.88 * strength ) );
+	tgt.direct = 0.5 * ( 0.15 + dusk + 0.85 * strength ) * ( 0.25 + 0.75 * WEATHERS[ choice.weather ].sunVis );
 
 }
 
 function sunFor( timeKey ) {
 
-	return timeKey === 'night' ? sky3.sun : sky3.plan.sun;
+	return isDark( timeKey ) ? sky3.sun : sky3.plan.sun;
 
 }
 
 planSky( 0 );
 let target = targetState( choice.time, choice.weather, sunFor( choice.time ) );
-if ( choice.time === 'night' ) nightLight( target );
+if ( isDark( choice.time ) ) nightLight( target );
 const state = cloneState( target );
 
 // Zoom divides the field of view: 1× is the natural view, up to 6× for a closer look.
@@ -337,7 +348,7 @@ function frame() {
 
 	// The real sky keeps turning; at night the light follows the Moon.
 	updateSky( t );
-	if ( choice.time === 'night' ) nightLight( target );
+	if ( isDark( choice.time ) ) nightLight( target );
 	lerpState( state, target, 1 - Math.exp( - dt * 0.9 ) );
 	const sunDir = state.light;
 
@@ -439,7 +450,12 @@ function frame() {
 		renderer.domElement.height / ( 2 * Math.tan( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) );
 	starField.update( camera, sky3.rot, {
 		time: t, cloudCover: state.cover, visible: state.stars, haze: state.haze,
-		lines: choice.extras.stars ? 1 : 0, pixelRatio: renderer.getPixelRatio()
+		pixelRatio: renderer.getPixelRatio()
+	} );
+	skyTraffic.update( t, dt, camera, {
+		cloudCover: state.cover, haze: state.haze, dark: state.dark, stars: state.stars * ( 1 - state.haze ),
+		trailColor: state.trail, pixelRatio: renderer.getPixelRatio(),
+		pixelScale: renderer.domElement.height / ( 2 * Math.tan( THREE.MathUtils.degToRad( camera.fov ) / 2 ) )
 	} );
 
 	renderer.render( scene, camera );
@@ -472,6 +488,7 @@ function faceSun( instant ) {
 
 	let d = sunFor( choice.time );
 	if ( choice.time === 'night' ) d = sky3.moon.y > 0.05 ? sky3.moon : toWorld( 0.5, here.lat >= 0 ? Math.PI : 0 );
+	// In twilight face the afterglow where the sun went down.
 	// The camera looks down -Z at yaw 0.
 	let goal = Math.atan2( - d.x, - d.z ) - drift.yaw - look.yaw;
 	// Take the short way round
@@ -532,11 +549,12 @@ function apply( turn ) {
 
 	if ( turn ) planSky( clock.elapsedTime );
 	target = targetState( choice.time, choice.weather, sunFor( choice.time ) );
-	if ( choice.time === 'night' ) nightLight( target );
+	if ( isDark( choice.time ) ) nightLight( target );
 	showSkyInfo();
 	sound.setScene( choice.time, choice.weather );
 	wildlife.setConditions( choice.time, choice.weather );
 	wildlife.setEnabled( choice.extras );
+	skyTraffic.setPlanes( choice.extras.planes );
 	if ( turn ) faceSun();
 	save();
 

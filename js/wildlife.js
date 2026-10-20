@@ -648,7 +648,7 @@ export class Wildlife {
 	setConditions( time, weather ) {
 
 		this.gullsAllowed = time !== 'night' && weather !== 'storm';
-		this.gullChance = weather === 'rain' ? 0.4 : 1;
+		this.gullChance = weather === 'rain' || time === 'twilight' ? 0.4 : 1;
 		if ( ! this.gullsAllowed && this.flock ) this.flock.leaving = true;
 
 	}
