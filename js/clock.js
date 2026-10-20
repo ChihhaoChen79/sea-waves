@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 // A giant clock standing on the horizon, like a screen saver. It's a real object in
-// the scene, so the sea reflects it, and it drifts round to stay in front of you.
+// the scene, so the sea reflects it. It is held in front of the camera and moves
+// with it, so it stays perfectly still on screen while the sea rocks around it.
 
 const DIST = 3000, HEIGHT = 530, LIFT = 30; // metres
 const W = 1024, H = 420; // texture size
@@ -12,7 +13,7 @@ export class HorizonClock {
 
 	constructor( scene ) {
 
-		// Channels: red = sharp text, blue = the colon (so it can pulse), green = soft glow.
+		// Channels: red = text, blue = the colon (so it can pulse on its own).
 		this.canvas = document.createElement( 'canvas' );
 		this.canvas.width = W;
 		this.canvas.height = H;
@@ -23,8 +24,6 @@ export class HorizonClock {
 		this.uniforms = {
 			map: { value: this.texture },
 			core: { value: new THREE.Color() },
-			glow: { value: new THREE.Color() },
-			glowAmount: { value: 0.5 },
 			colon: { value: 1 },
 			opacity: { value: 0 },
 			fogColor: { value: new THREE.Color() },
@@ -44,8 +43,6 @@ export class HorizonClock {
 			fragmentShader: /* glsl */`
 				uniform sampler2D map;
 				uniform vec3 core;
-				uniform vec3 glow;
-				uniform float glowAmount;
 				uniform float colon;
 				uniform float opacity;
 				uniform vec3 fogColor;
@@ -53,12 +50,9 @@ export class HorizonClock {
 				varying vec2 vUv;
 				void main() {
 					vec4 t = texture2D( map, vUv );
-					float text = max( t.r, t.b * colon );
-					float halo = pow( t.g, 1.6 ) * glowAmount; // falls off softly, no visible edge
-					float a = max( text, halo * 0.55 ) * opacity;
+					float a = max( t.r, t.b * colon ) * opacity;
 					if ( a < 0.01 ) discard; // keep empty parts from hiding stars behind
-					vec3 c = ( core * text + glow * halo * ( 1.0 - text ) ) / max( text + halo * ( 1.0 - text ), 1e-3 );
-					gl_FragColor = vec4( mix( c, fogColor, fogAmount ), a );
+					gl_FragColor = vec4( mix( core, fogColor, fogAmount ), a );
 					#include <tonemapping_fragment>
 					#include <colorspace_fragment>
 				}`
@@ -69,10 +63,11 @@ export class HorizonClock {
 
 		this.on = false;
 		this.fade = 0;
-		this.yaw = null;
 		this.drawn = '';
 		this.hour12 = /h1[12]/.test( new Intl.DateTimeFormat( [], { hour: 'numeric' } ).resolvedOptions().hourCycle || '' );
-		this.fwd = new THREE.Vector3();
+		this.untilt = new THREE.Quaternion();
+		this.xAxis = new THREE.Vector3( 1, 0, 0 );
+		this.offset = new THREE.Vector3();
 
 	}
 
@@ -104,24 +99,13 @@ export class HorizonClock {
 		const ws = suffix ? c.measureText( suffix ).width + 18 : 0;
 		const x0 = ( W - ( wh + wc + wm + ws ) ) / 2, base = 300;
 
-		const layout = ( fill, blur, colonFill ) => {
+		const layout = ( fill, colonFill ) => {
 
 			c.save();
-			if ( blur ) {
-
-				// Soft glow from a shadow cast back onto the canvas by text drawn off-canvas
-				// (canvas blur filters are too new for older iPhones).
-				c.shadowColor = fill;
-				c.shadowBlur = blur * 2;
-				c.shadowOffsetX = 4000;
-				c.translate( - 4000, 0 );
-
-			}
-
 			c.fillStyle = fill;
 			c.font = timeFont;
 			c.fillText( hh, x0, base );
-			c.fillStyle = colonFill || fill;
+			c.fillStyle = colonFill;
 			c.fillText( ':', x0 + wh, base - 18 );
 			c.fillStyle = fill;
 			c.fillText( m, x0 + wh + wc, base );
@@ -135,11 +119,7 @@ export class HorizonClock {
 
 		};
 
-		c.globalCompositeOperation = 'lighter';
-		layout( 'rgb(0,70,0)', 26 ); // wide, faint glow
-		layout( 'rgb(0,110,0)', 8 ); // tighter glow close to the strokes
-		layout( 'rgb(255,0,0)', 0, 'rgb(0,0,255)' ); // text, colon on its own channel
-		c.globalCompositeOperation = 'source-over';
+		layout( 'rgb(255,0,0)', 'rgb(0,0,255)' );
 		this.texture.needsUpdate = true;
 
 	}
@@ -150,33 +130,24 @@ export class HorizonClock {
 
 	}
 
-	// look: colours for the scene; fogDensity: the scene's fog, so it sits in the same air.
-	update( t, dt, camera, { core, glow, glowAmount, fogColor, fogDensity, dim } ) {
+	// lookPitch: how far the user has tilted the view up or down. The clock takes the
+	// camera's exact rotation minus that tilt, so it never moves on screen as the sea
+	// rocks the camera, yet still stands on the horizon when you look up or down.
+	update( t, dt, camera, lookPitch, { core, fogColor, fogDensity, dim } ) {
 
 		this.fade += ( ( this.on ? 1 : 0 ) - this.fade ) * Math.min( 1, dt * 1.5 );
 		this.mesh.visible = this.fade > 0.01;
-		if ( ! this.mesh.visible ) {
-
-			this.yaw = null;
-			return;
-
-		}
+		if ( ! this.mesh.visible ) return;
 
 		this.draw( new Date() );
 
-		// Drift lazily round to stay in front of the viewer
-		camera.getWorldDirection( this.fwd );
-		const want = Math.atan2( this.fwd.x, this.fwd.z );
-		if ( this.yaw === null ) this.yaw = want;
-		this.yaw += Math.atan2( Math.sin( want - this.yaw ), Math.cos( want - this.yaw ) ) * Math.min( 1, dt * 1.2 );
-		const p = camera.position;
-		this.mesh.position.set( p.x + Math.sin( this.yaw ) * DIST, LIFT + HEIGHT / 2, p.z + Math.cos( this.yaw ) * DIST );
-		this.mesh.lookAt( p.x, this.mesh.position.y, p.z );
+		this.untilt.setFromAxisAngle( this.xAxis, - lookPitch );
+		this.mesh.quaternion.copy( camera.quaternion ).multiply( this.untilt );
+		this.offset.set( 0, LIFT + HEIGHT / 2 - camera.position.y, - DIST ).applyQuaternion( this.mesh.quaternion );
+		this.mesh.position.copy( camera.position ).add( this.offset );
 
 		const u = this.uniforms;
 		u.core.value.copy( core );
-		u.glow.value.copy( glow );
-		u.glowAmount.value = glowAmount;
 		u.colon.value = 0.7 + 0.3 * Math.cos( t * Math.PI ); // a slow, soft pulse
 		u.fogColor.value.copy( fogColor );
 		// Same haze as everything else this far out, but never so much it can't be read

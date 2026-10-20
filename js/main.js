@@ -11,13 +11,13 @@ import { HorizonClock } from './clock.js';
 
 // Sun and Moon positions come from the real sky (astro.js); these set the colours.
 const TIMES = {
-	sunrise: { clock: [ 0xfff0dc, 0xffa86a, 0.75, 1 ], dark: 0, trail: 0xffd6b8, seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
-	morning: { clock: [ 0xffffff, 0xb8dcff, 0.4, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
-	noon: { clock: [ 0xffffff, 0x9ccaff, 0.35, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
-	sunset: { clock: [ 0xffe0bd, 0xff7a3d, 0.85, 1 ], dark: 0, trail: 0xffb890, seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
+	sunrise: { clock: [ 0xfff0dc, 1 ], dark: 0, trail: 0xffd6b8, seaGlow: 0.1, top: 0x3d5f9e, horizon: 0xf2b27a, sun: 0xffb27a, sunSize: 1.6, water: 0x10304a, stars: 0, disk: 1, moon: 0.6 },
+	morning: { clock: [ 0xffffff, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x3f7fd0, horizon: 0xbcd8ee, sun: 0xfff2dc, sunSize: 1, water: 0x0c3b52, stars: 0, disk: 1, moon: 0.4 },
+	noon: { clock: [ 0xffffff, 1 ], dark: 0, trail: 0xffffff, seaGlow: 0.1, top: 0x2a68c9, horizon: 0xa7cdea, sun: 0xffffff, sunSize: 0.8, water: 0x0a4560, stars: 0, disk: 1, moon: 0.35 },
+	sunset: { clock: [ 0xffe0bd, 1 ], dark: 0, trail: 0xffb890, seaGlow: 0.1, top: 0x2c3666, horizon: 0xff8a4c, sun: 0xff7b35, sunSize: 1.8, water: 0x1a2438, stars: 0, disk: 1, moon: 0.6 },
 	// Nautical twilight: deep blue overhead, a dusky glow where the sun went down
-	twilight: { clock: [ 0xece6ff, 0xa58cff, 0.7, 1.2 ], dark: 0.75, trail: 0x9c7f95, seaGlow: 0.035, top: 0x0a1a40, horizon: 0x8c7194, sun: 0x9eaad6, sunSize: 1, water: 0x071630, stars: 0.8, disk: 0, moon: 1.15 },
-	night: { clock: [ 0xe2ebff, 0x6f9bff, 0.75, 1.35 ], dark: 1, trail: 0x262c3a, seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
+	twilight: { clock: [ 0xece6ff, 1.2 ], dark: 0.75, trail: 0x9c7f95, seaGlow: 0.035, top: 0x0a1a40, horizon: 0x8c7194, sun: 0x9eaad6, sunSize: 1, water: 0x071630, stars: 0.8, disk: 0, moon: 1.15 },
+	night: { clock: [ 0xe2ebff, 1.35 ], dark: 1, trail: 0x262c3a, seaGlow: 0.012, top: 0x01030b, horizon: 0x0c1631, sun: 0xaabbe0, sunSize: 1.3, water: 0x020a14, stars: 1, disk: 0, moon: 1.3 }
 };
 
 const WEATHERS = {
@@ -54,10 +54,8 @@ function targetState( timeKey, weatherKey, sunAt ) {
 		top, horizon, sun: sunCol, cloudLit, cloudShade,
 		water: weathered( t.water, w.gloom * 0.5, dark ),
 		trail: new THREE.Color( t.trail ).multiplyScalar( 1 - w.gloom * 0.4 ), dark,
-		// Giant clock: [ text colour, glow colour, glow amount, brightness ], greyed by the weather
-		clockCore: new THREE.Color( t.clock[ 0 ] ).lerp( GLOOM_TINT, w.gloom * 0.45 ).multiplyScalar( t.clock[ 3 ] * ( 1 - w.gloom * 0.2 ) ),
-		clockGlow: new THREE.Color( t.clock[ 1 ] ).lerp( GLOOM_TINT, w.gloom * 0.6 ),
-		clockGlowAmount: t.clock[ 2 ] * ( 1 - w.gloom * 0.4 ) + w.haze * 0.4,
+		// Giant clock: [ text colour, brightness ], greyed by the weather
+		clockCore: new THREE.Color( t.clock[ 0 ] ).lerp( GLOOM_TINT, w.gloom * 0.45 ).multiplyScalar( t.clock[ 1 ] * ( 1 - w.gloom * 0.2 ) ),
 		stars: t.stars,
 		cover: w.cover, haze: w.haze, fog: w.fog, waves: w.waves, rain: w.rain,
 		foam: w.foam, sunVis: w.sunVis, storm: w.storm,
@@ -134,9 +132,9 @@ scene.add( hemi, sunLight );
 const sprayColor = new THREE.Color();
 const WHITE = new THREE.Color( 0xffffff );
 
-if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { wildlife, water, camera, sky3, here, sound, skyTraffic, horizonClock, get state() { return state; } };
+if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { get view() { return view; }, wildlife, water, camera, sky3, here, sound, skyTraffic, horizonClock, get state() { return state; } };
 
-let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true, clock: false }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 } };
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true, clock: false }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 }, camera: { float: true } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
@@ -147,6 +145,7 @@ try {
 		Object.assign( choice.extras, saved.extras );
 		Object.assign( choice.sound, saved.sound );
 		Object.assign( choice.volume, saved.volume );
+		Object.assign( choice.camera, saved.camera );
 
 	}
 
@@ -343,7 +342,9 @@ function updateLightning( t, dt ) {
 
 const clock = new THREE.Clock();
 const euler = new THREE.Euler( 0, 0, 0, 'YXZ' );
-const drift = { yaw: 0 };
+// Floating: how much the camera rides the waves (eases between 0 and 1 when switched).
+const drift = { yaw: 0, path: 0, float: choice.camera.float ? 1 : 0 };
+const view = { yaw: 0, pitch: 0, roll: 0 };
 let baseYaw = 0, yawGoal = 0;
 let frames = 0, fpsTime = 0, adapted = false;
 
@@ -401,14 +402,18 @@ function frame() {
 	updateLightning( t, dt );
 	renderer.toneMappingExposure = state.exposure + flash * 0.6;
 
-	// Floating camera: rides the swell, slowly drifts and sways.
+	// Floating camera: rides the swell, slowly drifts and sways (unless switched off).
+	drift.float += ( ( choice.camera.float ? 1 : 0 ) - drift.float ) * Math.min( 1, dt * 0.8 );
+	const f = drift.float;
+	drift.path += dt * f;
 	// Drift around a wide, slow circle so we never sail into an island.
-	const cx = 250 * Math.sin( t * 0.0024 ), cz = 250 * ( 1 - Math.cos( t * 0.0024 ) );
+	const cx = 250 * Math.sin( drift.path * 0.0024 ), cz = 250 * ( 1 - Math.cos( drift.path * 0.0024 ) );
 	const h = waveHeight( cx, cz, t, state.waves );
 	const e = 1.2;
 	const hx = waveHeight( cx + e, cz, t, state.waves ) - h;
 	const hz = waveHeight( cx, cz + e, t, state.waves ) - h;
-	camera.position.set( cx, 2.6 + h * 0.85, cz );
+	// Held steady, sit a little higher so storm crests stay below the camera.
+	camera.position.set( cx, 2.6 + THREE.MathUtils.lerp( state.waves * 1.2, h * 0.85, f ), cz );
 	sky.position.copy( camera.position );
 	// Keep the detailed middle of the ocean mesh under the camera (snapped to the grid spacing).
 	water.position.set( Math.round( cx / 2 ) * 2, 0, Math.round( cz / 2 ) * 2 );
@@ -427,12 +432,12 @@ function frame() {
 
 	// Turn gently toward the sun/moon after a new time of day is chosen.
 	baseYaw += ( yawGoal - baseYaw ) * ( 1 - Math.exp( - dt * 0.8 ) );
-	drift.yaw = Math.sin( t * 0.05 ) * 0.25 + t * 0.004;
-	euler.set(
-		look.pitch + hz * 0.25 + Math.sin( t * 0.7 ) * 0.006,
-		baseYaw + drift.yaw + look.yaw,
-		- hx * 0.3 + Math.sin( t * 0.5 ) * 0.01
-	);
+	drift.yaw += ( Math.cos( drift.path * 0.05 ) * 0.0125 + 0.004 ) * dt * f;
+	// The camera's heading and the rocking from the waves; the clock rides with these.
+	view.yaw = baseYaw + drift.yaw + look.yaw;
+	view.pitch = ( hz * 0.25 + Math.sin( t * 0.7 ) * 0.006 ) * f;
+	view.roll = ( - hx * 0.3 + Math.sin( t * 0.5 ) * 0.01 ) * f;
+	euler.set( look.pitch + view.pitch, view.yaw, view.roll );
 	camera.quaternion.setFromEuler( euler );
 
 	// Ease the zoom toward its target
@@ -463,8 +468,8 @@ function frame() {
 		trailColor: state.trail, pixelRatio: renderer.getPixelRatio(),
 		pixelScale: renderer.domElement.height / ( 2 * Math.tan( THREE.MathUtils.degToRad( camera.fov ) / 2 ) )
 	} );
-	horizonClock.update( t, dt, camera, {
-		core: state.clockCore, glow: state.clockGlow, glowAmount: state.clockGlowAmount,
+	horizonClock.update( t, dt, camera, look.pitch, {
+		core: state.clockCore,
 		fogColor: scene.fog.color, fogDensity: state.fog, dim: 1 - state.rain * 0.2
 	} );
 
@@ -678,6 +683,15 @@ function closeMixer() {
 	for ( const k in soundButtons ) soundButtons[ k ].setAttribute( 'aria-expanded', false );
 
 }
+
+const floatToggle = document.getElementById( 'float' );
+floatToggle.checked = choice.camera.float;
+floatToggle.addEventListener( 'change', () => {
+
+	choice.camera.float = floatToggle.checked;
+	save();
+
+} );
 
 for ( const key in toggles ) {
 

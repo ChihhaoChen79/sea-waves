@@ -10,20 +10,20 @@
 	<meta name="theme-color" content="#0b1422">
 	<meta name="description" content="Drift on a calm, realistic sea. Pick the time of day and the weather, and relax to gentle music.">
 	<title>Sea Waves</title>
-	<link rel="stylesheet" href="style.css?v=14">
+	<link rel="stylesheet" href="style.css?v=15">
 	<script type="importmap">
 		{
 			"imports": {
-				"three": "./lib/three.module.min.js?v=14",
-				"./lib/Water.js": "./lib/Water.js?v=14",
-				"./js/ocean.js": "./js/ocean.js?v=14",
-				"./js/audio.js": "./js/audio.js?v=14",
-				"./js/wildlife.js": "./js/wildlife.js?v=14",
-				"./js/astro.js": "./js/astro.js?v=14",
-				"./js/starfield.js": "./js/starfield.js?v=14",
-				"./js/starcatalog.js": "./js/starcatalog.js?v=14",
-				"./js/skytraffic.js": "./js/skytraffic.js?v=14",
-				"./js/clock.js": "./js/clock.js?v=14"
+				"three": "./lib/three.module.min.js?v=15",
+				"./lib/Water.js": "./lib/Water.js?v=15",
+				"./js/ocean.js": "./js/ocean.js?v=15",
+				"./js/audio.js": "./js/audio.js?v=15",
+				"./js/wildlife.js": "./js/wildlife.js?v=15",
+				"./js/astro.js": "./js/astro.js?v=15",
+				"./js/starfield.js": "./js/starfield.js?v=15",
+				"./js/starcatalog.js": "./js/starcatalog.js?v=15",
+				"./js/skytraffic.js": "./js/skytraffic.js?v=15",
+				"./js/clock.js": "./js/clock.js?v=15"
 			}
 		}
 	</script>
@@ -68,7 +68,7 @@
 				<button data-extra="clock"><span>🕰️</span>Clock</button>
 			</div>
 
-			<h2>Sound</h2>
+			<h2>Sound &amp; view</h2>
 			<label class="toggle">
 				<input type="checkbox" id="music" checked>
 				<span class="track"><span class="knob"></span></span>
@@ -78,6 +78,12 @@
 				<input type="checkbox" id="ambient" checked>
 				<span class="track"><span class="knob"></span></span>
 				Ocean &amp; nature sounds
+			</label>
+
+			<label class="toggle">
+				<input type="checkbox" id="float" checked>
+				<span class="track"><span class="knob"></span></span>
+				Float with the waves
 			</label>
 
 			<button id="begin" class="begin">Set sail</button>
@@ -113,6 +119,6 @@
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 
 	<!-- Bump v= on every release so phones never mix cached old scripts with a new page. -->
-	<script type="module" src="js/main.js?v=14"></script>
+	<script type="module" src="js/main.js?v=15"></script>
 </body>
 </html>
