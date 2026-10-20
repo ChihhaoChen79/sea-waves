@@ -45,17 +45,57 @@ export class Soundscape {
 
 		} catch ( e ) { /* not supported */ }
 
-		const ctx = this.ctx = new ( window.AudioContext || window.webkitAudioContext )();
+		// 'playback' asks for larger audio buffers: a little more delay (irrelevant for
+		// ambient music) in exchange for no dropouts on slower outputs such as CarPlay,
+		// where small buffers crackle while the phone is also busy drawing the scene.
+		const Ctx = window.AudioContext || window.webkitAudioContext;
+		let ctx;
+		try {
+
+			ctx = new Ctx( { latencyHint: 'playback' } );
+
+		} catch ( e ) {
+
+			ctx = new Ctx();
+
+		}
+
+		this.ctx = ctx;
+		this.stale = false;
+
+		// If the output changes while playing (CarPlay or headphones connecting) or iOS
+		// interrupts the audio, rebuild the engine on the next tap so it matches the new
+		// output; audio started for one output can sound distorted on another.
+		ctx.onstatechange = () => {
+
+			if ( ctx.state === 'interrupted' ) this.stale = true;
+
+		};
+
+		if ( ! this.watchingDevices && navigator.mediaDevices?.addEventListener ) {
+
+			this.watchingDevices = true;
+			navigator.mediaDevices.addEventListener( 'devicechange', () => {
+
+				this.stale = true;
+
+			} );
+
+		}
 
 		this.master = ctx.createGain();
 		this.master.gain.value = 0;
+		// Gentle limiter with headroom so a car amplifier is never driven into distortion
 		const comp = ctx.createDynamicsCompressor();
+		comp.threshold.value = - 16;
+		comp.knee.value = 12;
+		comp.ratio.value = 4;
 		this.master.connect( comp ).connect( ctx.destination );
-		this.master.gain.linearRampToValueAtTime( 0.9, ctx.currentTime + 3 );
+		this.master.gain.linearRampToValueAtTime( 0.75, ctx.currentTime + 3 );
 
 		// Two buses, each with its own echo, so either can be switched off completely:
 		// music (pads and bells) and ambient (sea, rain, thunder, whales, gulls).
-		const room = this.impulse( 5.5 );
+		const room = this.impulse( 3.5 );
 		const bus = ( level ) => {
 
 			const gain = ctx.createGain(), verb = ctx.createConvolver(), wet = ctx.createGain();
@@ -71,7 +111,7 @@ export class Soundscape {
 		this.musicBus = bus( 0.5 );
 		this.music = ctx.createGain();
 		this.music.connect( this.musicBus.gain );
-		this.music.connect( this.musicBus.verb );
+		this.musicVerbOn = false;
 		this.ambientBus = bus( 1 );
 		this.ambient = this.ambientBus.gain;
 		this.reverb = this.ambientBus.verb;
@@ -88,6 +128,8 @@ export class Soundscape {
 		this.nextBell = ctx.currentTime + 4;
 		this.nextSurge = ctx.currentTime;
 		this.timer = setInterval( () => this.schedule(), 250 );
+		if ( this.listening ) return;
+		this.listening = true;
 
 		// Keep playing in a background tab or minimised window, like a music player.
 		// When hidden, browsers run timers only about once a second, so schedule
@@ -95,10 +137,24 @@ export class Soundscape {
 		// backgrounding), pick it back up as soon as the page is visible again.
 		document.addEventListener( 'visibilitychange', () => {
 
+			if ( ! this.ctx ) return;
 			if ( document.hidden ) this.schedule();
-			else ctx.resume();
+			else this.ctx.resume();
 
 		} );
+
+	}
+
+	// Throw the audio engine away and build a fresh one for the current output. Must run
+	// inside a tap (iOS only starts audio from a user gesture). Settings are kept.
+	rebuildIfStale() {
+
+		if ( ! this.ctx || ! this.stale ) return;
+		clearInterval( this.timer );
+		const old = this.ctx;
+		this.ctx = null;
+		old.close().catch( () => {} );
+		this.start();
 
 	}
 
@@ -121,6 +177,15 @@ export class Soundscape {
 	}
 
 	fade( bus, on, volume ) {
+
+		// The music echo only runs while music is on (convolution is the costliest part).
+		if ( bus === this.musicBus && this.music && on !== this.musicVerbOn ) {
+
+			if ( on ) this.music.connect( bus.verb );
+			else this.music.disconnect( bus.verb );
+			this.musicVerbOn = on;
+
+		}
 
 		if ( this.ctx ) bus.gain.gain.setTargetAtTime( on ? bus.level * ( volume / 0.8 ) ** 2 : 0, this.ctx.currentTime, 0.15 );
 

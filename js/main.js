@@ -218,6 +218,10 @@ function resize() {
 
 window.addEventListener( 'resize', resize );
 window.visualViewport?.addEventListener( 'resize', resize );
+// If the audio output changed (e.g. CarPlay connected) rebuild the sound engine on the
+// next tap; iOS only lets audio start from a completed tap.
+for ( const type of [ 'touchend', 'click' ] ) window.addEventListener( type, () => sound.rebuildIfStale(), { passive: true } );
+
 // The page should never scroll; if iOS nudges it, put it back so taps line up with what's drawn.
 window.addEventListener( 'scroll', () => window.scrollTo( 0, 0 ) );
 window.addEventListener( 'orientationchange', () => setTimeout( resize, 300 ) );
