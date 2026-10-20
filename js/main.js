@@ -218,6 +218,8 @@ function resize() {
 
 window.addEventListener( 'resize', resize );
 window.visualViewport?.addEventListener( 'resize', resize );
+// The page should never scroll; if iOS nudges it, put it back so taps line up with what's drawn.
+window.addEventListener( 'scroll', () => window.scrollTo( 0, 0 ) );
 window.addEventListener( 'orientationchange', () => setTimeout( resize, 300 ) );
 resize();
 

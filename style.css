@@ -23,17 +23,12 @@ html, body {
 	overscroll-behavior: none;
 }
 
-/* Full screen. Opened from the iPhone home screen (with the see-through status bar),
-   iOS lays the page out one status-bar height shorter than the screen while still
-   drawing from the very top, which left an empty strip at the bottom. Adding the
-   top safe-area inset makes up exactly that difference; in Safari itself the inset
-   is 0, so nothing changes there. */
 #scene {
 	position: fixed;
 	top: 0;
 	left: 0;
 	width: 100%;
-	height: calc(100% + env(safe-area-inset-top));
+	height: 100%;
 	display: block;
 	touch-action: none;
 }
