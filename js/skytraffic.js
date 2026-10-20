@@ -280,7 +280,8 @@ export class SkyTraffic {
 
 		}
 
-		const lights = THREE.MathUtils.lerp( 0.03, 1, dark );
+		// Navigation lights only show once the sun is down (twilight and night).
+		const lights = dark;
 		for ( const p of this.planes ) {
 
 			p.age += dt;
@@ -294,26 +295,30 @@ export class SkyTraffic {
 			}
 
 			// Body: a sunlit silver glint by day
-			const body = 0.9 * ( 1 - dark );
-			this.sparks.add( p.pos, body, body, body * 1.05, 3 );
-			// Navigation lights, shimmering in the air: red on the left wing, green on the right
-			const shimmer = ( k ) => 0.75 + 0.25 * Math.sin( t * 21 + k ) * Math.sin( t * 7.3 + k * 2 );
-			// Wingtips: spread a little wider than real so red and green stay apart on a phone
-			const span = Math.max( 30, p.pos.distanceTo( cam ) * 0.006 );
-			const left = this.tmp.copy( p.pos ).addScaledVector( p.right, - span );
-			const right = this.tmp2.copy( p.pos ).addScaledVector( p.right, span );
-			this.sparks.add( left, 1.4 * lights * shimmer( p.phase ), 0.08 * lights, 0.06 * lights, 3.6 );
-			this.sparks.add( right, 0.1 * lights, 1.3 * lights * shimmer( p.phase + 2 ), 0.35 * lights, 3.6 );
-			// White wingtip strobes (double flash) and a red beacon
-			const c = ( t + p.phase ) % 1.25;
-			if ( c < 0.05 || ( c > 0.16 && c < 0.21 ) ) {
+			const body = 0.55 * ( 1 - dark );
+			if ( body > 0.01 ) this.sparks.add( p.pos, body, body, body * 1.05, 2.2 );
+			if ( lights > 0.01 ) {
 
-				this.sparks.add( left, 2 * lights, 2 * lights, 2 * lights, 5 );
-				this.sparks.add( right, 2 * lights, 2 * lights, 2 * lights, 5 );
+				// Navigation lights, shimmering in the air: red on the left wing, green on the right
+				const shimmer = ( k ) => 0.75 + 0.25 * Math.sin( t * 21 + k ) * Math.sin( t * 7.3 + k * 2 );
+				// Wingtips: spread a little wider than real so red and green stay apart on a phone
+				const span = Math.max( 30, p.pos.distanceTo( cam ) * 0.006 );
+				const left = this.tmp.copy( p.pos ).addScaledVector( p.right, - span );
+				const right = this.tmp2.copy( p.pos ).addScaledVector( p.right, span );
+				this.sparks.add( left, 1.4 * lights * shimmer( p.phase ), 0.08 * lights, 0.06 * lights, 3.6 );
+				this.sparks.add( right, 0.1 * lights, 1.3 * lights * shimmer( p.phase + 2 ), 0.35 * lights, 3.6 );
+				// White wingtip strobes (double flash) and a red beacon
+				const c = ( t + p.phase ) % 1.25;
+				if ( c < 0.05 || ( c > 0.16 && c < 0.21 ) ) {
+
+					this.sparks.add( left, 2 * lights, 2 * lights, 2 * lights, 5 );
+					this.sparks.add( right, 2 * lights, 2 * lights, 2 * lights, 5 );
+
+				}
+
+				if ( ( t + p.phase * 0.7 ) % 1 < 0.12 ) this.sparks.add( p.pos, 1.5 * lights, 0.15 * lights, 0.1 * lights, 4.2 );
 
 			}
-
-			if ( ( t + p.phase * 0.7 ) % 1 < 0.12 ) this.sparks.add( p.pos, 1.5 * lights, 0.15 * lights, 0.1 * lights, 4.2 );
 
 		}
 

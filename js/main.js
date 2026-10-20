@@ -205,7 +205,19 @@ let baseFov = 60;
 
 function resize() {
 
-	const w = window.innerWidth, h = window.innerHeight;
+	let w = window.innerWidth, h = window.innerHeight;
+	// Opened from the iPhone home screen, iOS can report a height short of the real
+	// screen (by about the status bar), leaving an empty strip at the bottom. Use the
+	// actual screen size there.
+	if ( navigator.standalone ) {
+
+		const short = Math.min( screen.width, screen.height ), long = Math.max( screen.width, screen.height );
+		[ w, h ] = h >= w ? [ short, long ] : [ long, short ];
+
+	}
+
+	canvas.style.width = `${ w }px`;
+	canvas.style.height = `${ h }px`;
 	renderer.setSize( w, h, false );
 	camera.aspect = w / h;
 	// Keep a natural horizontal field of view in portrait on a phone.
@@ -216,6 +228,8 @@ function resize() {
 }
 
 window.addEventListener( 'resize', resize );
+window.visualViewport?.addEventListener( 'resize', resize );
+window.addEventListener( 'orientationchange', () => setTimeout( resize, 300 ) );
 resize();
 
 // ---------- Looking around (touch / mouse drag) ----------
@@ -425,8 +439,6 @@ function frame() {
 		look.vPitch *= 0.93;
 		look.yaw += look.vYaw;
 		look.pitch = THREE.MathUtils.clamp( look.pitch + look.vPitch, - 0.6, 0.7 );
-		// Ease the gaze back toward the horizon
-		look.pitch += ( - 0.04 - look.pitch ) * dt * 0.3;
 
 	}
 
