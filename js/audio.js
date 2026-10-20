@@ -89,10 +89,13 @@ export class Soundscape {
 		this.nextSurge = ctx.currentTime;
 		this.timer = setInterval( () => this.schedule(), 250 );
 
-		// iOS sometimes interrupts the context (calls, Siri, background); resume when back.
+		// Keep playing in a background tab or minimised window, like a music player.
+		// When hidden, browsers run timers only about once a second, so schedule
+		// further ahead then. If the system interrupted audio (a call, Siri, iOS
+		// backgrounding), pick it back up as soon as the page is visible again.
 		document.addEventListener( 'visibilitychange', () => {
 
-			if ( document.hidden ) ctx.suspend();
+			if ( document.hidden ) this.schedule();
 			else ctx.resume();
 
 		} );
@@ -330,11 +333,15 @@ export class Soundscape {
 
 	schedule() {
 
-		const ctx = this.ctx, now = ctx.currentTime, ahead = now + 0.6;
+		const ctx = this.ctx, now = ctx.currentTime, ahead = now + ( document.hidden ? 5 : 0.6 );
 		const s = SCALES[ this.mood ] || SCALES.morning;
+		// After a long stall, skip what was missed rather than playing it all at once.
+		this.nextSurge = Math.max( this.nextSurge, now );
+		this.nextChord = Math.max( this.nextChord, now );
+		this.nextBell = Math.max( this.nextBell, now );
 
 		// Ocean surges: slow swells of the wash, like waves rolling past.
-		if ( this.nextSurge < ahead ) {
+		while ( this.nextSurge < ahead ) {
 
 			const t = this.nextSurge, len = rand( 5, 9 ) - this.swell * 2;
 			const g = this.oceanGain.gain;
@@ -355,7 +362,7 @@ export class Soundscape {
 		}
 
 		// Pad chords, slower at night
-		if ( this.nextChord < ahead ) {
+		while ( this.nextChord < ahead ) {
 
 			const t = this.nextChord;
 			const dur = this.mood === 'night' ? 13 : 10;
@@ -367,7 +374,7 @@ export class Soundscape {
 		}
 
 		// Sparse bell melody
-		if ( this.nextBell < ahead ) {
+		while ( this.nextBell < ahead ) {
 
 			const t = this.nextBell;
 			const oct = Math.random() < 0.3 ? 24 : 12;
