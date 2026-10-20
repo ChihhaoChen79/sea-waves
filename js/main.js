@@ -205,19 +205,8 @@ let baseFov = 60;
 
 function resize() {
 
-	let w = window.innerWidth, h = window.innerHeight;
-	// Opened from the iPhone home screen, iOS can report a height short of the real
-	// screen (by about the status bar), leaving an empty strip at the bottom. Use the
-	// actual screen size there.
-	if ( navigator.standalone ) {
-
-		const short = Math.min( screen.width, screen.height ), long = Math.max( screen.width, screen.height );
-		[ w, h ] = h >= w ? [ short, long ] : [ long, short ];
-
-	}
-
-	canvas.style.width = `${ w }px`;
-	canvas.style.height = `${ h }px`;
+	// The stylesheet sizes the canvas to the whole screen (see #scene); render at that size.
+	const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
 	renderer.setSize( w, h, false );
 	camera.aspect = w / h;
 	// Keep a natural horizontal field of view in portrait on a phone.
