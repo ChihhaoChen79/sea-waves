@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createWater, createSky, createRain, waveHeight } from './ocean.js';
-import { Soundscape } from './audio.js';
+import { Soundscape, NOTE_NAMES, MODES, INSTRUMENTS, DEFAULT_COMPOSER } from './audio.js';
 import { Wildlife } from './wildlife.js';
 import { observer, plan, julian, sunDir as realSunDir, moonDir as realMoonDir, skyRotation, toWorld } from './astro.js';
 import { StarField } from './starfield.js';
@@ -134,7 +134,7 @@ const WHITE = new THREE.Color( 0xffffff );
 
 if ( new URLSearchParams( location.search ).has( 'debug' ) ) window.sea = { get view() { return view; }, wildlife, water, camera, sky3, here, sound, skyTraffic, horizonClock, get state() { return state; } };
 
-let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true, clock: false }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 }, camera: { float: true } };
+let choice = { time: 'sunset', weather: 'clear', extras: { whales: true, gulls: true, islands: true, planes: true, clock: false }, sound: { music: true, ambient: true }, volume: { music: 0.8, ambient: 0.8 }, camera: { float: true }, composer: { ...DEFAULT_COMPOSER } };
 try {
 
 	const saved = JSON.parse( localStorage.getItem( 'sea-waves' ) );
@@ -146,6 +146,7 @@ try {
 		Object.assign( choice.sound, saved.sound );
 		Object.assign( choice.volume, saved.volume );
 		Object.assign( choice.camera, saved.camera );
+		Object.assign( choice.composer, saved.composer );
 
 	}
 
@@ -690,6 +691,79 @@ function closeMixer() {
 	for ( const k in soundButtons ) soundButtons[ k ].setAttribute( 'aria-expanded', false );
 
 }
+
+// ---------- Music page: key, scale, melody instrument and pace ----------
+
+const musicMenu = document.getElementById( 'musicMenu' );
+const paceSlider = document.getElementById( 'pace' );
+const musicChips = {
+	key: [ [ 'auto', 'Auto' ], ...NOTE_NAMES.map( ( n, i ) => [ i, n ] ) ],
+	mode: [ [ 'auto', 'Auto' ], ...Object.entries( MODES ).map( ( [ k, m ] ) => [ k, m.label ] ) ],
+	instrument: Object.entries( INSTRUMENTS )
+};
+const chipHolders = { key: 'keyChips', mode: 'modeChips', instrument: 'instrumentChips' };
+
+for ( const field in musicChips ) {
+
+	const holder = document.getElementById( chipHolders[ field ] );
+	for ( const [ value, label ] of musicChips[ field ] ) {
+
+		const b = document.createElement( 'button' );
+		b.textContent = label;
+		b.dataset.value = value;
+		b.addEventListener( 'click', () => setComposer( { [ field ]: value } ) );
+		holder.appendChild( b );
+
+	}
+
+}
+
+function syncMusicPage() {
+
+	const c = choice.composer;
+	for ( const field in chipHolders ) {
+
+		document.getElementById( chipHolders[ field ] ).querySelectorAll( 'button' )
+			.forEach( ( b ) => b.setAttribute( 'aria-pressed', String( c[ field ] ) === b.dataset.value ) );
+
+	}
+
+	paceSlider.value = Math.round( c.pace * 100 );
+	paceSlider.style.setProperty( '--fill', `${ ( paceSlider.value - paceSlider.min ) / ( paceSlider.max - paceSlider.min ) * 100 }%` );
+	document.getElementById( 'paceOut' ).textContent = `${ c.pace.toFixed( 2 ).replace( /0$/, '' ) }×`;
+	document.getElementById( 'musicNow' ).textContent = sound.describe();
+
+}
+
+function setComposer( change ) {
+
+	Object.assign( choice.composer, change );
+	sound.setComposer( choice.composer );
+	// Choosing something for the music means you want to hear it.
+	if ( ! choice.sound.music ) setSound( 'music', true );
+	else sound.start();
+	syncMusicPage();
+	save();
+
+}
+
+paceSlider.addEventListener( 'input', () => setComposer( { pace: paceSlider.value / 100 } ) );
+document.getElementById( 'musicDefault' ).addEventListener( 'click', () => setComposer( { ...DEFAULT_COMPOSER } ) );
+document.getElementById( 'musicSetup' ).addEventListener( 'click', () => {
+
+	syncMusicPage();
+	menu.classList.add( 'hidden' );
+	musicMenu.classList.remove( 'hidden' );
+
+} );
+document.getElementById( 'musicDone' ).addEventListener( 'click', () => {
+
+	musicMenu.classList.add( 'hidden' );
+	menu.classList.remove( 'hidden' );
+
+} );
+
+sound.setComposer( choice.composer );
 
 const floatToggle = document.getElementById( 'float' );
 floatToggle.checked = choice.camera.float;

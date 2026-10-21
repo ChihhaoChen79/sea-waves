@@ -10,6 +10,7 @@ A one-page, full-screen ocean scene made for iPhone Safari.
 - Airliners crossing at cruising height, leaving contrails that slowly spread and fade, with blinking red/green navigation lights after dark (switch: Planes)
 - Shooting stars now and then on clear dark skies
 - A giant screen-saver clock on the horizon, reflected in the sea, coloured to match the time and weather; it is held steady on screen while the sea rocks (switch: Clock)
+- Your own music: the ⚙ next to Peaceful music sets the key (C–B), scale (major, minor, dorian, lydian, mixolydian, pentatonic, jazz, Japanese), melody instrument (bells, piano, harp, flute, marimba, kalimba) and pace; "Back to default" returns to the built-in time-of-day music
 - Generative peaceful music plus ocean, rain and thunder sounds (Web Audio, no audio files)
 
 ## Run it

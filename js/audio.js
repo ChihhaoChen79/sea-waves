@@ -9,6 +9,41 @@ const SCALES = {
 	night: { root: 55, chords: [ [ 0, 3, 7, 14 ], [ 8, 12, 15, 19 ], [ 3, 7, 10, 14 ], [ 10, 14, 17, 21 ] ], bells: [ 0, 3, 5, 7, 10 ] }
 };
 
+// ---------- User music settings ----------
+
+export const NOTE_NAMES = [ 'C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B' ];
+
+// scale: semitones from the root. prog: the chord on each scale degree, in order.
+// size: notes per chord, stacked in thirds (every other scale note).
+// harmony: a fuller scale to build chords from when the melody scale is sparse.
+export const MODES = {
+	major: { label: 'Major', scale: [ 0, 2, 4, 5, 7, 9, 11 ], prog: [ 0, 5, 3, 4 ], size: 4 },
+	minor: { label: 'Minor', scale: [ 0, 2, 3, 5, 7, 8, 10 ], prog: [ 0, 5, 2, 6 ], size: 4 },
+	dorian: { label: 'Dorian', scale: [ 0, 2, 3, 5, 7, 9, 10 ], prog: [ 0, 3, 0, 6 ], size: 4 },
+	lydian: { label: 'Lydian', scale: [ 0, 2, 4, 6, 7, 9, 11 ], prog: [ 0, 1, 0, 4 ], size: 4 },
+	mixolydian: { label: 'Mixolydian', scale: [ 0, 2, 4, 5, 7, 9, 10 ], prog: [ 0, 6, 3, 0 ], size: 4 },
+	pentatonic: { label: 'Pentatonic', scale: [ 0, 2, 4, 7, 9 ], harmony: [ 0, 2, 4, 5, 7, 9, 11 ], prog: [ 0, 5, 3, 4 ], size: 3 },
+	jazz: { label: 'Jazz', scale: [ 0, 2, 4, 5, 7, 9, 11 ], prog: [ 1, 4, 0, 5 ], size: 5 },
+	japanese: { label: 'Japanese', scale: [ 0, 1, 5, 7, 8 ], prog: [ 0, 3, 4, 0 ], size: 4 }
+};
+
+export const INSTRUMENTS = { bells: 'Bells', piano: 'Piano', harp: 'Harp', flute: 'Flute', marimba: 'Marimba', kalimba: 'Kalimba' };
+
+// The built-in, time-of-day music above (SCALES) is what "auto" means everywhere.
+export const DEFAULT_COMPOSER = { key: 'auto', mode: 'auto', instrument: 'bells', pace: 1 };
+
+// Chord on a scale degree, stacked in thirds, as semitones from the root.
+function stack( scale, degree, size ) {
+
+	return Array.from( { length: size }, ( _, i ) => {
+
+		const k = degree + 2 * i;
+		return scale[ k % scale.length ] + 12 * Math.floor( k / scale.length );
+
+	} );
+
+}
+
 const midi = ( n ) => 440 * Math.pow( 2, ( n - 69 ) / 12 );
 const rand = ( a, b ) => a + Math.random() * ( b - a );
 
@@ -22,6 +57,7 @@ export class Soundscape {
 		this.musicVolume = 0.8;
 		this.ambientVolume = 0.8;
 		this.mood = 'morning';
+		this.composer = { ...DEFAULT_COMPOSER };
 		this.rain = 0;
 		this.swell = 0.5;
 		this.chordIndex = 0;
@@ -188,6 +224,44 @@ export class Soundscape {
 		}
 
 		if ( this.ctx ) bus.gain.gain.setTargetAtTime( on ? bus.level * ( volume / 0.8 ) ** 2 : 0, this.ctx.currentTime, 0.15 );
+
+	}
+
+	// What to play now: the time-of-day default (SCALES), with the user's key and
+	// scale applied on top when they've chosen them.
+	song() {
+
+		const base = SCALES[ this.mood ] || SCALES.morning;
+		const c = this.composer;
+		// Keep a chosen key in the same gentle register as the defaults (G3 to F♯4)
+		const root = c.key === 'auto' ? base.root : 55 + ( ( c.key - 7 + 12 ) % 12 );
+		const m = MODES[ c.mode ];
+		if ( ! m ) return { root, chords: base.chords, bells: base.bells };
+		const harmony = m.harmony || m.scale;
+		return { root, chords: m.prog.map( ( d ) => stack( harmony, d, m.size ) ), bells: m.scale };
+
+	}
+
+	setComposer( c ) {
+
+		const changed = JSON.stringify( c ) !== JSON.stringify( this.composer );
+		this.composer = { ...DEFAULT_COMPOSER, ...c };
+		if ( ! changed || ! this.ctx || ! this.musicOn ) return;
+		// Let the change be heard straight away: a new chord and a melody note shortly.
+		const now = this.ctx.currentTime;
+		this.chordIndex = 0;
+		this.nextChord = Math.min( this.nextChord, now + 0.25 );
+		this.nextBell = Math.min( this.nextBell, now + 0.4 );
+
+	}
+
+	// e.g. "D major · Bells · 1.0×" for the settings page.
+	describe() {
+
+		const s = this.song(), c = this.composer;
+		const key = NOTE_NAMES[ s.root % 12 ];
+		const mode = MODES[ c.mode ]?.label.toLowerCase() || ( s.bells.includes( 3 ) ? 'minor' : 'major' );
+		return `${ c.key === 'auto' && c.mode === 'auto' ? 'Auto: ' : '' }${ key } ${ mode } · ${ INSTRUMENTS[ c.instrument ] } · ${ c.pace.toFixed( 1 ) }×`;
 
 	}
 
@@ -399,7 +473,7 @@ export class Soundscape {
 	schedule() {
 
 		const ctx = this.ctx, now = ctx.currentTime, ahead = now + ( document.hidden ? 5 : 0.6 );
-		const s = SCALES[ this.mood ] || SCALES.morning;
+		const s = this.song(), pace = this.composer.pace;
 		// After a long stall, skip what was missed rather than playing it all at once.
 		this.nextSurge = Math.max( this.nextSurge, now );
 		this.nextChord = Math.max( this.nextChord, now );
@@ -430,7 +504,7 @@ export class Soundscape {
 		while ( this.nextChord < ahead ) {
 
 			const t = this.nextChord;
-			const dur = this.mood === 'night' ? 13 : 10;
+			const dur = ( this.mood === 'night' ? 13 : 10 ) / pace;
 			const chord = s.chords[ this.chordIndex ++ % s.chords.length ];
 			chord.forEach( ( n, i ) => this.pad( midi( s.root + n - 12 ), t + i * 0.12, dur + 3 ) );
 			this.pad( midi( s.root + chord[ 0 ] - 24 ), t, dur + 3, 0.05 );
@@ -438,21 +512,21 @@ export class Soundscape {
 
 		}
 
-		// Sparse bell melody
+		// Sparse melody on the chosen instrument
 		while ( this.nextBell < ahead ) {
 
 			const t = this.nextBell;
 			const oct = Math.random() < 0.3 ? 24 : 12;
 			const n = s.bells[ Math.floor( Math.random() * s.bells.length ) ];
-			this.bell( midi( s.root + n + oct ), t );
+			this.melody( midi( s.root + n + oct ), t );
 			if ( Math.random() < 0.35 ) {
 
 				const n2 = s.bells[ Math.floor( Math.random() * s.bells.length ) ];
-				this.bell( midi( s.root + n2 + oct ), t + rand( 0.4, 0.9 ), 0.6 );
+				this.melody( midi( s.root + n2 + oct ), t + rand( 0.4, 0.9 ) / pace, 0.6 );
 
 			}
 
-			this.nextBell = t + rand( 2.5, 6.5 );
+			this.nextBell = t + rand( 2.5, 6.5 ) / pace;
 
 		}
 
@@ -483,6 +557,109 @@ export class Soundscape {
 			o.stop( t + dur + 0.1 );
 
 		}
+
+	}
+
+	melody( freq, t, level = 1 ) {
+
+		const play = { piano: this.piano, harp: this.harp, flute: this.flute, marimba: this.marimba, kalimba: this.kalimba }[ this.composer.instrument ] || this.bell;
+		play.call( this, freq, t, level );
+
+	}
+
+	// One note: sine partials [ frequency ratio, level, decay seconds ] into the music bus.
+	partials( freq, t, level, list, attack = 0.005 ) {
+
+		const ctx = this.ctx;
+		for ( const [ mul, amp, decay, type = 'sine' ] of list ) {
+
+			const o = ctx.createOscillator(), g = ctx.createGain();
+			o.type = type;
+			o.frequency.value = freq * mul;
+			g.gain.setValueAtTime( 0, t );
+			g.gain.linearRampToValueAtTime( amp * level, t + attack );
+			g.gain.exponentialRampToValueAtTime( 0.0001, t + decay );
+			o.connect( g ).connect( this.music );
+			o.start( t );
+			o.stop( t + decay + 0.05 );
+
+		}
+
+	}
+
+	piano( freq, t, level ) {
+
+		// Soft felt piano: a warm fundamental, a quick bright edge, slightly detuned strings
+		this.partials( freq, t, level, [ [ 1, 0.05, 3.2 ], [ 1.003, 0.03, 2.6, 'triangle' ], [ 2, 0.012, 1.2 ], [ 3, 0.005, 0.5 ] ] );
+
+	}
+
+	harp( freq, t, level ) {
+
+		// Plucked string: bright at the pluck, mellowing as it rings
+		const ctx = this.ctx;
+		const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+		o.type = 'sawtooth';
+		o.frequency.value = freq;
+		lp.type = 'lowpass';
+		lp.frequency.setValueAtTime( freq * 6, t );
+		lp.frequency.exponentialRampToValueAtTime( freq * 1.2, t + 0.8 );
+		g.gain.setValueAtTime( 0, t );
+		g.gain.linearRampToValueAtTime( 0.035 * level, t + 0.004 );
+		g.gain.exponentialRampToValueAtTime( 0.0001, t + 2.6 );
+		o.connect( lp ).connect( g ).connect( this.music );
+		o.start( t );
+		o.stop( t + 2.7 );
+
+	}
+
+	flute( freq, t, level ) {
+
+		// Breathy, slow to speak, with a gentle vibrato
+		const ctx = this.ctx, len = 1.6;
+		const o = ctx.createOscillator(), g = ctx.createGain(), vib = ctx.createOscillator(), depth = ctx.createGain();
+		o.frequency.value = freq;
+		vib.frequency.value = 5;
+		depth.gain.value = freq * 0.004;
+		vib.connect( depth ).connect( o.frequency );
+		g.gain.setValueAtTime( 0, t );
+		g.gain.linearRampToValueAtTime( 0.045 * level, t + 0.18 );
+		g.gain.setValueAtTime( 0.045 * level, t + len - 0.5 );
+		g.gain.linearRampToValueAtTime( 0, t + len );
+		o.connect( g ).connect( this.music );
+		const breath = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), bg = ctx.createGain();
+		breath.buffer = this.white;
+		bp.type = 'bandpass';
+		bp.frequency.value = freq * 2;
+		bp.Q.value = 2;
+		bg.gain.setValueAtTime( 0, t );
+		bg.gain.linearRampToValueAtTime( 0.012 * level, t + 0.06 );
+		bg.gain.linearRampToValueAtTime( 0.003 * level, t + 0.4 );
+		bg.gain.linearRampToValueAtTime( 0, t + len );
+		breath.connect( bp ).connect( bg ).connect( this.music );
+		for ( const n of [ o, vib ] ) {
+
+			n.start( t );
+			n.stop( t + len + 0.05 );
+
+		}
+
+		breath.start( t, Math.random() * 3 );
+		breath.stop( t + len + 0.05 );
+
+	}
+
+	marimba( freq, t, level ) {
+
+		// Wooden bar: short, round fundamental and a bright, very short overtone
+		this.partials( freq, t, level, [ [ 1, 0.07, 1.1 ], [ 3.93, 0.025, 0.18 ], [ 9.2, 0.006, 0.05 ] ], 0.003 );
+
+	}
+
+	kalimba( freq, t, level ) {
+
+		// Thumb piano: a clear tine with its characteristic high, inharmonic ring
+		this.partials( freq, t, level, [ [ 1, 0.06, 2.2 ], [ 5.4, 0.018, 0.35 ], [ 2.01, 0.008, 0.9 ] ], 0.003 );
 
 	}
 

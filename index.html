@@ -15,20 +15,20 @@
 	<link rel="manifest" href="manifest.webmanifest">
 	<link rel="apple-touch-icon" href="icon-180.png">
 	<link rel="icon" type="image/png" href="icon-512.png">
-	<link rel="stylesheet" href="style.css?v=19">
+	<link rel="stylesheet" href="style.css?v=20">
 	<script type="importmap">
 		{
 			"imports": {
-				"three": "./lib/three.module.min.js?v=19",
-				"./lib/Water.js": "./lib/Water.js?v=19",
-				"./js/ocean.js": "./js/ocean.js?v=19",
-				"./js/audio.js": "./js/audio.js?v=19",
-				"./js/wildlife.js": "./js/wildlife.js?v=19",
-				"./js/astro.js": "./js/astro.js?v=19",
-				"./js/starfield.js": "./js/starfield.js?v=19",
-				"./js/starcatalog.js": "./js/starcatalog.js?v=19",
-				"./js/skytraffic.js": "./js/skytraffic.js?v=19",
-				"./js/clock.js": "./js/clock.js?v=19"
+				"three": "./lib/three.module.min.js?v=20",
+				"./lib/Water.js": "./lib/Water.js?v=20",
+				"./js/ocean.js": "./js/ocean.js?v=20",
+				"./js/audio.js": "./js/audio.js?v=20",
+				"./js/wildlife.js": "./js/wildlife.js?v=20",
+				"./js/astro.js": "./js/astro.js?v=20",
+				"./js/starfield.js": "./js/starfield.js?v=20",
+				"./js/starcatalog.js": "./js/starcatalog.js?v=20",
+				"./js/skytraffic.js": "./js/skytraffic.js?v=20",
+				"./js/clock.js": "./js/clock.js?v=20"
 			}
 		}
 	</script>
@@ -74,11 +74,16 @@
 			</div>
 
 			<h2>Sound &amp; view</h2>
-			<label class="toggle">
-				<input type="checkbox" id="music" checked>
-				<span class="track"><span class="knob"></span></span>
-				Peaceful music
-			</label>
+			<div class="toggle-row">
+				<label class="toggle">
+					<input type="checkbox" id="music" checked>
+					<span class="track"><span class="knob"></span></span>
+					Peaceful music
+				</label>
+				<button id="musicSetup" class="gear" aria-label="Music settings">
+					<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" fill="none"/><circle cx="16" cy="7" r="2" fill="none"/><circle cx="10" cy="17" r="2" fill="none"/></svg>
+				</button>
+			</div>
 			<label class="toggle">
 				<input type="checkbox" id="ambient" checked>
 				<span class="track"><span class="knob"></span></span>
@@ -92,6 +97,39 @@
 			</label>
 
 			<button id="begin" class="begin">Set sail</button>
+			</div>
+		</div>
+	</section>
+
+	<!-- Music settings: key, scale, melody instrument and pace -->
+	<section id="musicMenu" class="panel-wrap hidden" aria-label="Music settings">
+		<div class="panel">
+			<div class="col">
+			<h1>Music</h1>
+			<p class="sub" id="musicNow"></p>
+
+			<h2>Key</h2>
+			<div class="chips keys" role="group" aria-label="Key" id="keyChips"></div>
+
+			<h2>Scale</h2>
+			<div class="chips words" role="group" aria-label="Scale" id="modeChips"></div>
+			</div>
+
+			<div class="col">
+			<h2>Melody instrument</h2>
+			<div class="chips words" role="group" aria-label="Melody instrument" id="instrumentChips"></div>
+
+			<h2>Pace</h2>
+			<div class="pace">
+				<span>Slower</span>
+				<div class="mix-slide"><input type="range" id="pace" min="50" max="160" step="5" aria-label="Music pace"><output id="paceOut"></output></div>
+				<span>Livelier</span>
+			</div>
+
+			<div class="music-actions">
+				<button id="musicDefault" class="plain">Back to default</button>
+				<button id="musicDone" class="begin">Done</button>
+			</div>
 			</div>
 		</div>
 	</section>
@@ -124,6 +162,6 @@
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 
 	<!-- Bump v= on every release so phones never mix cached old scripts with a new page. -->
-	<script type="module" src="js/main.js?v=19"></script>
+	<script type="module" src="js/main.js?v=20"></script>
 </body>
 </html>
