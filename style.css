@@ -102,7 +102,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 	#modeChips { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 	#modeChips button { font-size: 11.5px; letter-spacing: -0.02em; }
 	.chips.keys button, .chips.words button { padding: 6px 2px; font-size: 13px; }
-	.music-actions { margin-top: 12px; }
+	.music-actions { margin-top: 10px; }
+	#musicMenu .mix-slide input[type="range"] { height: 26px; }
+	#musicMenu h2 { margin: 8px 0 4px; }
 	.plain { padding: 12px; }
 }
 
@@ -167,6 +169,8 @@ h2 {
 .chips.keys button, .chips.words button { padding: 9px 2px; font-size: 14px; }
 .chips.keys button:first-child { grid-column: span 2; }
 .pace { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.pace > span { width: 50px; }
+.pace > span:last-child { text-align: right; }
 .pace .mix-slide { flex: 1; }
 .music-actions { display: flex; gap: 10px; margin-top: 18px; }
 .music-actions .begin { flex: 1; margin-top: 0; }

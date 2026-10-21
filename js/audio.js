@@ -30,7 +30,32 @@ export const MODES = {
 export const INSTRUMENTS = { bells: 'Bells', piano: 'Piano', harp: 'Harp', flute: 'Flute', marimba: 'Marimba', kalimba: 'Kalimba' };
 
 // The built-in, time-of-day music above (SCALES) is what "auto" means everywhere.
-export const DEFAULT_COMPOSER = { key: 'auto', mode: 'auto', instrument: 'bells', pace: 1 };
+// reverb: echo amount; tone: 0 warm … 1 bright; melody: 0 chords only … 1 melody to the fore.
+export const DEFAULT_COMPOSER = { key: 'auto', mode: 'auto', instrument: 'bells', pace: 1, reverb: 0.55, tone: 0.45, melody: 0.5 };
+
+// A metronome in a Web Worker. A background tab's own timers get throttled hard
+// (in Chrome eventually to once a minute), which made the music lag and turn to noise;
+// worker timers keep much better time.
+function workerClock( tick, ms ) {
+
+	try {
+
+		const url = URL.createObjectURL( new Blob( [ `setInterval( () => postMessage( 0 ), ${ ms } );` ], { type: 'text/javascript' } ) );
+		const worker = new Worker( url );
+		URL.revokeObjectURL( url );
+		worker.onmessage = tick;
+		return { stop: () => worker.terminate() };
+
+	} catch ( e ) {
+
+		const id = setInterval( tick, ms );
+		return { stop: () => clearInterval( id ) };
+
+	}
+
+}
+
+const IOS = /iP(hone|ad|od)/.test( navigator.userAgent ) || ( navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 );
 
 // Chord on a scale degree, stacked in thirds, as semitones from the root.
 function stack( scale, degree, size ) {
@@ -140,7 +165,7 @@ export class Soundscape {
 			wet.gain.value = 0.55;
 			gain.connect( this.master );
 			verb.connect( wet ).connect( gain );
-			return { gain, verb, level };
+			return { gain, verb, wet, level };
 
 		};
 
@@ -148,6 +173,10 @@ export class Soundscape {
 		this.music = ctx.createGain();
 		this.music.connect( this.musicBus.gain );
 		this.musicVerbOn = false;
+		// The melody voice has its own level, for the melody/chords balance.
+		this.melodyOut = ctx.createGain();
+		this.melodyOut.connect( this.music );
+		this.applyMix();
 		this.ambientBus = bus( 1 );
 		this.ambient = this.ambientBus.gain;
 		this.reverb = this.ambientBus.verb;
@@ -163,18 +192,21 @@ export class Soundscape {
 		this.nextChord = ctx.currentTime + 0.5;
 		this.nextBell = ctx.currentTime + 4;
 		this.nextSurge = ctx.currentTime;
-		this.timer = setInterval( () => this.schedule(), 250 );
+		this.lastTick = performance.now();
+		this.clock = workerClock( () => this.schedule(), 250 );
 		if ( this.listening ) return;
 		this.listening = true;
 
 		// Keep playing in a background tab or minimised window, like a music player.
-		// When hidden, browsers run timers only about once a second, so schedule
-		// further ahead then. If the system interrupted audio (a call, Siri, iOS
-		// backgrounding), pick it back up as soon as the page is visible again.
+		// When hidden, timers may run only about once a second, so schedule further
+		// ahead then. Coming back: if the system interrupted the audio or the clock
+		// stalled while away, rebuild it straight away where the browser allows that
+		// (desktop browsers, once the page has been used); on iOS, on the next tap.
 		document.addEventListener( 'visibilitychange', () => {
 
 			if ( ! this.ctx ) return;
-			if ( document.hidden ) this.schedule();
+			if ( document.hidden ) return this.schedule();
+			if ( this.stale && ! IOS && navigator.userActivation?.hasBeenActive !== false ) this.rebuildIfStale();
 			else this.ctx.resume();
 
 		} );
@@ -186,7 +218,7 @@ export class Soundscape {
 	rebuildIfStale() {
 
 		if ( ! this.ctx || ! this.stale ) return;
-		clearInterval( this.timer );
+		this.clock.stop();
 		const old = this.ctx;
 		this.ctx = null;
 		old.close().catch( () => {} );
@@ -246,12 +278,29 @@ export class Soundscape {
 
 		const changed = JSON.stringify( c ) !== JSON.stringify( this.composer );
 		this.composer = { ...DEFAULT_COMPOSER, ...c };
+		this.applyMix();
 		if ( ! changed || ! this.ctx || ! this.musicOn ) return;
+		// Mixing changes alone are heard as they are; no need to restart the chords.
+		if ( [ 'key', 'mode', 'instrument', 'pace' ].every( ( k ) => c[ k ] === this.heard?.[ k ] ) ) return;
+		this.heard = { ...this.composer };
 		// Let the change be heard straight away: a new chord and a melody note shortly.
 		const now = this.ctx.currentTime;
 		this.chordIndex = 0;
 		this.nextChord = Math.min( this.nextChord, now + 0.25 );
 		this.nextBell = Math.min( this.nextBell, now + 0.4 );
+
+	}
+
+	// Reverb, tone and melody level take effect immediately, smoothly.
+	applyMix() {
+
+		if ( ! this.ctx || ! this.melodyOut ) return;
+		const c = this.composer, t = this.ctx.currentTime;
+		this.musicBus.wet.gain.setTargetAtTime( c.reverb, t, 0.2 );
+		// melody 0.5 is the original balance; 0 silences it, 1 doubles it
+		this.melodyOut.gain.setTargetAtTime( Math.min( 2, ( c.melody * 2 ) ** 1.5 ), t, 0.2 );
+		// Tone: the chords' soft filter, from 350 Hz (warm) to 3.2 kHz (bright); 0.45 ≈ the original 900 Hz
+		this.padCutoff = 350 * Math.pow( 3200 / 350, c.tone );
 
 	}
 
@@ -473,6 +522,11 @@ export class Soundscape {
 	schedule() {
 
 		const ctx = this.ctx, now = ctx.currentTime, ahead = now + ( document.hidden ? 5 : 0.6 );
+		// A long gap between ticks means the page was frozen or starved; the audio
+		// engine may come back in a bad state, so rebuild it at the next chance.
+		const wall = performance.now();
+		if ( wall - this.lastTick > 4000 ) this.stale = true;
+		this.lastTick = wall;
 		const s = this.song(), pace = this.composer.pace;
 		// After a long stall, skip what was missed rather than playing it all at once.
 		this.nextSurge = Math.max( this.nextSurge, now );
@@ -537,7 +591,7 @@ export class Soundscape {
 		const ctx = this.ctx;
 		const lp = ctx.createBiquadFilter();
 		lp.type = 'lowpass';
-		lp.frequency.value = 900;
+		lp.frequency.value = this.padCutoff || 900;
 		lp.Q.value = 0.3;
 		const g = ctx.createGain();
 		g.gain.setValueAtTime( 0, t );
@@ -579,7 +633,7 @@ export class Soundscape {
 			g.gain.setValueAtTime( 0, t );
 			g.gain.linearRampToValueAtTime( amp * level, t + attack );
 			g.gain.exponentialRampToValueAtTime( 0.0001, t + decay );
-			o.connect( g ).connect( this.music );
+			o.connect( g ).connect( this.melodyOut );
 			o.start( t );
 			o.stop( t + decay + 0.05 );
 
@@ -607,7 +661,7 @@ export class Soundscape {
 		g.gain.setValueAtTime( 0, t );
 		g.gain.linearRampToValueAtTime( 0.035 * level, t + 0.004 );
 		g.gain.exponentialRampToValueAtTime( 0.0001, t + 2.6 );
-		o.connect( lp ).connect( g ).connect( this.music );
+		o.connect( lp ).connect( g ).connect( this.melodyOut );
 		o.start( t );
 		o.stop( t + 2.7 );
 
@@ -626,7 +680,7 @@ export class Soundscape {
 		g.gain.linearRampToValueAtTime( 0.045 * level, t + 0.18 );
 		g.gain.setValueAtTime( 0.045 * level, t + len - 0.5 );
 		g.gain.linearRampToValueAtTime( 0, t + len );
-		o.connect( g ).connect( this.music );
+		o.connect( g ).connect( this.melodyOut );
 		const breath = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), bg = ctx.createGain();
 		breath.buffer = this.white;
 		bp.type = 'bandpass';
@@ -636,7 +690,7 @@ export class Soundscape {
 		bg.gain.linearRampToValueAtTime( 0.012 * level, t + 0.06 );
 		bg.gain.linearRampToValueAtTime( 0.003 * level, t + 0.4 );
 		bg.gain.linearRampToValueAtTime( 0, t + len );
-		breath.connect( bp ).connect( bg ).connect( this.music );
+		breath.connect( bp ).connect( bg ).connect( this.melodyOut );
 		for ( const n of [ o, vib ] ) {
 
 			n.start( t );
@@ -670,7 +724,7 @@ export class Soundscape {
 		g.gain.setValueAtTime( 0, t );
 		g.gain.linearRampToValueAtTime( 0.06 * level, t + 0.02 );
 		g.gain.exponentialRampToValueAtTime( 0.0005, t + 4 );
-		g.connect( this.music );
+		g.connect( this.melodyOut );
 		for ( const [ mul, amp ] of [ [ 1, 1 ], [ 2.01, 0.25 ], [ 3.0, 0.08 ] ] ) {
 
 			const o = ctx.createOscillator();

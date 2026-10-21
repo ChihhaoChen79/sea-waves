@@ -728,9 +728,16 @@ function syncMusicPage() {
 
 	}
 
-	paceSlider.value = Math.round( c.pace * 100 );
-	paceSlider.style.setProperty( '--fill', `${ ( paceSlider.value - paceSlider.min ) / ( paceSlider.max - paceSlider.min ) * 100 }%` );
-	document.getElementById( 'paceOut' ).textContent = `${ c.pace.toFixed( 2 ).replace( /0$/, '' ) }×`;
+	const showSlider = ( el, value, text ) => {
+
+		el.value = value;
+		el.style.setProperty( '--fill', `${ ( el.value - el.min ) / ( el.max - el.min ) * 100 }%` );
+		document.getElementById( el.id + 'Out' ).textContent = text;
+
+	};
+
+	showSlider( paceSlider, Math.round( c.pace * 100 ), `${ c.pace.toFixed( 2 ).replace( /0$/, '' ) }×` );
+	for ( const key of [ 'reverb', 'tone', 'melody' ] ) showSlider( mixSliders[ key ], Math.round( c[ key ] * 100 ), `${ Math.round( c[ key ] * 100 ) }%` );
 	document.getElementById( 'musicNow' ).textContent = sound.describe();
 
 }
@@ -748,6 +755,8 @@ function setComposer( change ) {
 }
 
 paceSlider.addEventListener( 'input', () => setComposer( { pace: paceSlider.value / 100 } ) );
+const mixSliders = { reverb: document.getElementById( 'reverb' ), tone: document.getElementById( 'tone' ), melody: document.getElementById( 'melody' ) };
+for ( const key in mixSliders ) mixSliders[ key ].addEventListener( 'input', () => setComposer( { [ key ]: mixSliders[ key ].value / 100 } ) );
 document.getElementById( 'musicDefault' ).addEventListener( 'click', () => setComposer( { ...DEFAULT_COMPOSER } ) );
 document.getElementById( 'musicSetup' ).addEventListener( 'click', () => {
 

@@ -15,20 +15,20 @@
 	<link rel="manifest" href="manifest.webmanifest">
 	<link rel="apple-touch-icon" href="icon-180.png">
 	<link rel="icon" type="image/png" href="icon-512.png">
-	<link rel="stylesheet" href="style.css?v=20">
+	<link rel="stylesheet" href="style.css?v=21">
 	<script type="importmap">
 		{
 			"imports": {
-				"three": "./lib/three.module.min.js?v=20",
-				"./lib/Water.js": "./lib/Water.js?v=20",
-				"./js/ocean.js": "./js/ocean.js?v=20",
-				"./js/audio.js": "./js/audio.js?v=20",
-				"./js/wildlife.js": "./js/wildlife.js?v=20",
-				"./js/astro.js": "./js/astro.js?v=20",
-				"./js/starfield.js": "./js/starfield.js?v=20",
-				"./js/starcatalog.js": "./js/starcatalog.js?v=20",
-				"./js/skytraffic.js": "./js/skytraffic.js?v=20",
-				"./js/clock.js": "./js/clock.js?v=20"
+				"three": "./lib/three.module.min.js?v=21",
+				"./lib/Water.js": "./lib/Water.js?v=21",
+				"./js/ocean.js": "./js/ocean.js?v=21",
+				"./js/audio.js": "./js/audio.js?v=21",
+				"./js/wildlife.js": "./js/wildlife.js?v=21",
+				"./js/astro.js": "./js/astro.js?v=21",
+				"./js/starfield.js": "./js/starfield.js?v=21",
+				"./js/starcatalog.js": "./js/starcatalog.js?v=21",
+				"./js/skytraffic.js": "./js/skytraffic.js?v=21",
+				"./js/clock.js": "./js/clock.js?v=21"
 			}
 		}
 	</script>
@@ -101,7 +101,7 @@
 		</div>
 	</section>
 
-	<!-- Music settings: key, scale, melody instrument and pace -->
+	<!-- Music settings: key, scale, melody instrument, pace, reverb, tone and balance -->
 	<section id="musicMenu" class="panel-wrap hidden" aria-label="Music settings">
 		<div class="panel">
 			<div class="col">
@@ -119,11 +119,26 @@
 			<h2>Melody instrument</h2>
 			<div class="chips words" role="group" aria-label="Melody instrument" id="instrumentChips"></div>
 
-			<h2>Pace</h2>
+			<h2>Pace &amp; sound</h2>
 			<div class="pace">
 				<span>Slower</span>
 				<div class="mix-slide"><input type="range" id="pace" min="50" max="160" step="5" aria-label="Music pace"><output id="paceOut"></output></div>
 				<span>Livelier</span>
+			</div>
+			<div class="pace">
+				<span>Dry</span>
+				<div class="mix-slide"><input type="range" id="reverb" min="0" max="100" step="1" aria-label="Reverb"><output id="reverbOut"></output></div>
+				<span>Hall</span>
+			</div>
+			<div class="pace">
+				<span>Warm</span>
+				<div class="mix-slide"><input type="range" id="tone" min="0" max="100" step="1" aria-label="Tone"><output id="toneOut"></output></div>
+				<span>Bright</span>
+			</div>
+			<div class="pace">
+				<span>Chords</span>
+				<div class="mix-slide"><input type="range" id="melody" min="0" max="100" step="1" aria-label="Melody and chords balance"><output id="melodyOut"></output></div>
+				<span>Melody</span>
 			</div>
 
 			<div class="music-actions">
@@ -162,6 +177,6 @@
 	<p id="nogl" hidden>Sorry, this device can't show the 3D sea (WebGL is unavailable).</p>
 
 	<!-- Bump v= on every release so phones never mix cached old scripts with a new page. -->
-	<script type="module" src="js/main.js?v=20"></script>
+	<script type="module" src="js/main.js?v=21"></script>
 </body>
 </html>
